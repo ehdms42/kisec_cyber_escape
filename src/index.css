@@ -34,18 +34,14 @@
 }
 
 html {
-  background: #fff;
-  width: 100%;
-  max-width: 100%;
+  background: #020914;
   min-width: 320px;
   overflow-x: hidden;
   overscroll-behavior-x: none;
 }
 
 body {
-  background: #fff;
-  width: 100%;
-  max-width: 100%;
+  background: #020914;
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
@@ -64,22 +60,18 @@ button:focus-visible {
 }
 
 #root {
-  background: #fff;
-  justify-content: center;
-  justify-items: center;
+  background: #020914;
   width: 100%;
-  max-width: 100%;
   min-height: 100vh;
-  display: grid;
+  display: block;
   overflow-x: hidden;
 }
 
 .app-frame {
   background: var(--primary);
   width: 100%;
-  max-width: 430px;
+  max-width: 100%;
   min-height: 100dvh;
-  margin-inline: auto;
   box-shadow: none;
   border-inline: 0;
   position: relative;
@@ -3589,9 +3581,7 @@ button:focus-visible {
 
 .app-shell {
   background: #020914;
-  justify-self: center;
-  width: 100%;
-  max-width: 430px;
+  width: min(100%, 430px);
   min-height: 100dvh;
   margin-inline: auto;
   position: relative;

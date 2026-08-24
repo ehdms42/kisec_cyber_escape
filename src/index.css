@@ -1032,11 +1032,12 @@ button:focus-visible {
 
 .dialogue-stage {
   z-index: 5;
-  align-items: flex-end;
+  align-content: end;
+  gap: 10px;
   min-height: 210px;
-  display: flex;
+  display: grid;
   position: absolute;
-  bottom: 28px;
+  bottom: 12px;
   left: 18px;
   right: 18px;
 }
@@ -1205,6 +1206,28 @@ button:focus-visible {
   position: absolute;
   bottom: 14px;
   right: 20px;
+}
+
+.story-skip {
+  color: #d9eaff73;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 10px;
+  justify-self: center;
+  min-height: 32px;
+  padding: 6px 15px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-shadow: 0 1px 4px #000;
+  transition:
+    color .18s ease,
+    background .18s ease;
+}
+
+.story-skip:hover, .story-skip:focus-visible {
+  color: #eaf4ffd9;
+  background: #8fb4f214;
 }
 
 .denied-terminal-action {
@@ -1516,7 +1539,7 @@ button:focus-visible {
   }
 
   .dialogue-stage {
-    bottom: 22px;
+    bottom: 8px;
     left: 12px;
     right: 12px;
   }
@@ -2788,28 +2811,111 @@ button:focus-visible {
 
 .room-pan-hint {
   z-index: 8;
-  color: #dceaff;
+  pointer-events: none;
   white-space: nowrap;
-  backdrop-filter: blur(8px);
-  background: #030a15b3;
-  border: 1px solid #bfd4f742;
-  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  background:
+    linear-gradient(180deg, #153d6de8, #06182df2),
+    repeating-linear-gradient(90deg, #ffffff08 0 1px, transparent 1px 9px);
+  border: 1px solid #8fb4f27a;
+  border-radius: 15px;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
   align-items: center;
-  gap: 9px;
-  padding: 9px 13px;
-  font-size: 11px;
-  font-weight: 700;
+  gap: 8px;
+  width: min(calc(100% - 36px), 286px);
+  min-height: 58px;
+  padding: 7px 8px;
   animation: 4.5s 1s both panorama-hint;
-  display: flex;
+  display: grid;
   position: absolute;
   bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
+  box-shadow:
+    0 10px 26px #00081485,
+    inset 0 1px #d9edff24,
+    inset 0 -1px #030a15;
 }
 
-.room-pan-hint span {
+.room-pan-hint:before {
+  content: "";
+  background: linear-gradient(90deg, transparent, #8fb4f2d9, transparent);
+  width: 64%;
+  height: 1px;
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  box-shadow: 0 0 8px #5e91ee;
+}
+
+.pan-hint-copy {
+  text-align: center;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  gap: 2px;
+  display: grid;
+}
+
+.pan-hint-copy small {
   color: var(--blue-30);
-  font-size: 15px;
+  font: 700 7px Rubik, sans-serif;
+  letter-spacing: .18em;
+}
+
+.pan-hint-copy strong {
+  color: #f2f7ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  text-shadow: 0 1px 4px #000;
+}
+
+.pan-direction {
+  background: radial-gradient(circle at 50% 35%, #5e91ee47, #06182d 72%);
+  border: 1px solid #8fb4f266;
+  border-radius: 11px;
+  width: 42px;
+  height: 42px;
+  position: relative;
+  box-shadow:
+    inset 0 1px #d9edff1f,
+    0 3px 8px #00081473;
+}
+
+.pan-direction:before, .pan-direction:after {
+  content: "";
+  border-top: 2px solid #d9edff;
+  border-right: 2px solid #d9edff;
+  width: 8px;
+  height: 8px;
+  position: absolute;
+  top: 15px;
+  filter: drop-shadow(0 0 4px #5e91ee);
+  animation: 1.25s ease-in-out infinite pan-direction-pulse;
+}
+
+.pan-direction:after {
+  animation-delay: .16s;
+}
+
+.pan-direction-left:before {
+  left: 11px;
+  transform: rotate(-135deg);
+}
+
+.pan-direction-left:after {
+  left: 19px;
+  transform: rotate(-135deg);
+}
+
+.pan-direction-right:before {
+  right: 19px;
+  transform: rotate(45deg);
+}
+
+.pan-direction-right:after {
+  right: 11px;
+  transform: rotate(45deg);
 }
 
 .room-code-rail {
@@ -2889,6 +2995,17 @@ button:focus-visible {
   }
 }
 
+@keyframes pan-direction-pulse {
+  0%, 100% {
+    opacity: .28;
+  }
+
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 7px #8fb4f2);
+  }
+}
+
 @media (width <= 374px) {
   .level-sheet {
     margin: 0;
@@ -2900,6 +3017,11 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .room-pan-hint {
     animation: none !important;
+  }
+
+  .pan-direction:before, .pan-direction:after {
+    animation: none !important;
+    opacity: 1;
   }
 }
 

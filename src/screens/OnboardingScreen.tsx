@@ -130,6 +130,11 @@ export default function OnboardingScreen({
               </span>
             )}
           </button>
+          {!isLastDialogue && (
+            <button className="story-skip" type="button" onClick={onComplete}>
+              스토리 건너뛰기
+            </button>
+          )}
         </main>
       )}
 

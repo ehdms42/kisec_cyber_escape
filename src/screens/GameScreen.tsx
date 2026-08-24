@@ -315,7 +315,12 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
           {completed.length === 0 && !focusedPuzzle && (
             <div className="room-pan-hint" aria-hidden="true">
-              <span>←</span> 좌우로 밀어 탐색 <span>→</span>
+              <span className="pan-direction pan-direction-left" />
+              <span className="pan-hint-copy">
+                <small>SECTOR SCAN</small>
+                <strong>좌우로 밀어 탐색</strong>
+              </span>
+              <span className="pan-direction pan-direction-right" />
             </div>
           )}
 

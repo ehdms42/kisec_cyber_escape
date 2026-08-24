@@ -73,7 +73,7 @@ export default function App() {
   return (
     <div className={`app-shell screen-${screen}`}>
       {hasGameSession && (
-        <div hidden={screen !== "game"}>
+        <div className="game-session" hidden={screen !== "game"}>
           <GameScreen
             key={gameKey}
             onFinish={finishGame}

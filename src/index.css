@@ -35,14 +35,22 @@
 
 html {
   background: #fff;
+  width: 100%;
+  max-width: 100%;
   min-width: 320px;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 body {
   background: #fff;
+  width: 100%;
+  max-width: 100%;
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 button {
@@ -57,17 +65,23 @@ button:focus-visible {
 
 #root {
   background: #fff;
+  justify-content: center;
   justify-items: center;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
   display: grid;
+  overflow-x: hidden;
 }
 
 .app-frame {
   background: var(--primary);
-  width: min(100%, 430px);
+  width: 100%;
+  max-width: 430px;
   min-height: 100dvh;
+  margin-inline: auto;
   box-shadow: none;
-  border-inline: 1px solid #eceef2;
+  border-inline: 0;
   position: relative;
   overflow: hidden;
 }
@@ -2759,7 +2773,7 @@ button:focus-visible {
   box-shadow: none;
   cursor: grab;
   touch-action: pan-x;
-  overscroll-behavior-x: contain;
+  overscroll-behavior-x: none;
   scrollbar-width: none;
   background: #020914;
   border: 0;
@@ -3574,13 +3588,19 @@ button:focus-visible {
 }
 
 .app-shell {
-  width: min(100%, 430px);
+  background: #020914;
+  justify-self: center;
+  width: 100%;
+  max-width: 430px;
   min-height: 100dvh;
+  margin-inline: auto;
   position: relative;
+  overflow: hidden;
 }
 
-.app-shell > .app-frame {
+.app-shell > .app-frame, .game-session {
   width: 100%;
+  min-width: 0;
 }
 
 .site-copyright {

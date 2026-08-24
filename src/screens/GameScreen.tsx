@@ -285,12 +285,25 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                         </span>
                       )}
                       {state === "locked" && (
-                        <img
-                          className="hotspot-lock-image"
-                          src="/lock-front-blue-v2.png"
-                          alt=""
-                          aria-hidden="true"
-                        />
+                        <span className="hotspot-lock-badge" aria-hidden="true">
+                          <svg
+                            className="hotspot-lock-symbol"
+                            viewBox="0 0 32 36"
+                          >
+                            <path
+                              className="hotspot-lock-shackle"
+                              d="M8 15V10a8 8 0 0 1 16 0v5"
+                            />
+                            <path
+                              className="hotspot-lock-body"
+                              d="M5 14.5h22v18H5z"
+                            />
+                            <path
+                              className="hotspot-lock-keyhole"
+                              d="M16 20a3 3 0 0 0-1.5 5.6V29h3v-3.4A3 3 0 0 0 16 20Z"
+                            />
+                          </svg>
+                        </span>
                       )}
                       <small>{puzzle.shortTitle}</small>
                     </button>

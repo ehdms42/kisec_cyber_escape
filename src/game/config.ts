@@ -38,7 +38,7 @@ export const PUZZLES: readonly Puzzle[] = [
     digit: DOOR_CODE[0],
     closeImage: "/server-console-v2-close.jpg",
     solvedImage: "/server-console-v2-solved.jpg",
-    hotspot: { left: "12%", top: "54%" },
+    hotspot: { left: "10.2%", top: "50%" },
     outline: {
       left: "1.2%",
       top: "36.5%",
@@ -48,7 +48,7 @@ export const PUZZLES: readonly Puzzle[] = [
         "polygon(9% 0, 87% 2%, 96% 10%, 100% 75%, 94% 90%, 72% 100%, 13% 96%, 4% 86%, 0 17%)",
     },
     tracePath:
-      "M 48 327 L 64 326 L 75 331 L 80 337 L 238 348 L 250 350 L 260 356 L 265 366 L 285 507 L 283 524 L 275 540 L 294 549 L 322 558 L 348 565 L 368 570 L 374 575 L 369 580 L 358 583 L 160 599 L 113 621 Q 98 609 94 600 Q 92 587 96 579 L 66 573 L 52 562 L 43 547 L 38 530 L 18 377 L 15 360 L 21 344 L 34 332 Z",
+      "M 48 327 L 64 326 L 75 331 L 80 337 L 238 348 L 250 350 L 260 356 L 265 366 L 285 507 L 283 524 L 275 540 L 294 549 L 322 558 L 348 565 L 368 570 L 378 575 L 372 582 L 361 587 L 176 625 L 162 626 L 147 622 L 101 613 L 94 609 L 91 602 L 93 590 L 96 580 L 68 575 L 56 568 L 48 558 L 43 547 L 38 530 L 18 377 L 15 360 L 21 344 L 34 332 Z",
   },
   {
     id: "patch",
@@ -59,7 +59,7 @@ export const PUZZLES: readonly Puzzle[] = [
     digit: DOOR_CODE[1],
     closeImage: "/server-patch-v2-close.jpg",
     solvedImage: "/server-patch-v2-solved.jpg",
-    hotspot: { left: "28%", top: "35%" },
+    hotspot: { left: "27.7%", top: "38.45%" },
     outline: {
       left: "18.3%",
       top: "18.2%",
@@ -80,7 +80,7 @@ export const PUZZLES: readonly Puzzle[] = [
     digit: DOOR_CODE[2],
     closeImage: "/server-backup-v2-close.jpg",
     solvedImage: "/server-backup-v2-solved.jpg",
-    hotspot: { left: "74%", top: "47%" },
+    hotspot: { left: "73.5%", top: "53.05%" },
     outline: {
       left: "65.8%",
       top: "21.3%",
@@ -101,7 +101,7 @@ export const PUZZLES: readonly Puzzle[] = [
     digit: DOOR_CODE[3],
     closeImage: "/server-ups-v2-close.jpg",
     solvedImage: "/server-ups-v2-solved.jpg",
-    hotspot: { left: "91%", top: "45%" },
+    hotspot: { left: "93.5%", top: "57.5%" },
     outline: {
       left: "85.8%",
       top: "29.6%",

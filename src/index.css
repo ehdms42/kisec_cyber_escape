@@ -3549,34 +3549,11 @@ button:focus-visible {
   top: -68px;
 }
 
-.hotspot-lock-image {
-  object-fit: contain;
-  display: block;
-}
-
 @media (width <= 374px) {
   .agent-badge-image {
     width: 116px;
     height: 116px;
     top: -62px;
-  }
-}
-
-.object-hotspot.locked {
-  border-color: #d9edffb3;
-}
-
-.hotspot-lock-image {
-  filter: brightness(1.58) saturate(.68) contrast(1.12) drop-shadow(0 0 1px #fff) drop-shadow(0 0 7px #bfdeffd1) drop-shadow(0 4px 3px #0000008a);
-  width: 42px;
-  height: 42px;
-  transform: translateY(-1px) scale(1.03);
-}
-
-@media (width <= 374px) {
-  .hotspot-lock-image {
-    width: 40px;
-    height: 40px;
   }
 }
 
@@ -3589,46 +3566,101 @@ button:focus-visible {
 }
 
 .object-hotspot.locked {
-  background: linear-gradient(#1f2b3bf7, #070d16fa);
-  border: 1px solid #b8c8dc8a;
-  width: 46px;
-  height: 46px;
-  animation: 2.6s ease-in-out infinite locked-badge-breathe;
-  box-shadow: 0 5px 11px #00000094, inset 0 1px #ffffff1a, inset 0 -5px 10px #00000047;
+  backdrop-filter: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  width: 58px;
+  height: 62px;
+  animation: none;
+  box-shadow: none;
 }
 
 .object-hotspot.locked small {
   display: none;
 }
 
-.object-hotspot.locked .hotspot-lock-image {
-  opacity: .92;
-  filter: grayscale(.82) saturate(.22) brightness(1.62) contrast(1.08) drop-shadow(0 1px 1px #ffffff3d) drop-shadow(0 3px 3px #0000009e);
-  width: 36px;
-  height: 36px;
-  transform: translateY(-1px);
+.hotspot-lock-badge {
+  isolation: isolate;
+  background: linear-gradient(145deg, #a7c4df, #587a9c 48%, #2c4968);
+  clip-path: polygon(50% 0, 91% 17%, 100% 67%, 78% 100%, 22% 100%, 0 67%, 9% 17%);
+  place-items: center;
+  width: 48px;
+  height: 54px;
+  display: grid;
+  position: relative;
+  animation: 2.8s ease-in-out infinite locked-badge-glow;
+  filter: drop-shadow(0 6px 5px #0000009c) drop-shadow(0 0 5px #5e91ee47);
+}
+
+.hotspot-lock-badge:before {
+  content: "";
+  z-index: -1;
+  background:
+    radial-gradient(circle at 50% 22%, #315b82, #10263d 58%, #081521 100%);
+  clip-path: inherit;
+  position: absolute;
+  inset: 2px;
+}
+
+.hotspot-lock-badge:after {
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #e5f2ffad, transparent);
+  width: 54%;
+  height: 1px;
+  position: absolute;
+  top: 8px;
+  left: 23%;
+  box-shadow: 0 0 5px #a7d1f7;
+}
+
+.hotspot-lock-symbol {
+  width: 24px;
+  height: 27px;
+  margin-top: 2px;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px #0000008c);
+}
+
+.hotspot-lock-shackle {
+  fill: none;
+  stroke: #bfd8ed;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.hotspot-lock-body {
+  fill: #789ab8;
+  stroke: #e6f3ff;
+  stroke-width: 1;
+}
+
+.hotspot-lock-keyhole {
+  fill: #0a1a29;
 }
 
 .object-hotspot.locked:active {
-  transform: translate(-50%, -50%) scale(.95);
+  transform: translate(-50%, -50%) scale(.92);
 }
 
-.object-hotspot.locked:active .hotspot-lock-image {
-  filter: grayscale(.72) saturate(.3) brightness(1.8) contrast(1.08) drop-shadow(0 0 3px #ffffff59) drop-shadow(0 3px 3px #0000009e);
+.object-hotspot.locked:active .hotspot-lock-badge {
+  animation: none;
+  filter: brightness(1.18) drop-shadow(0 3px 3px #0000009c) drop-shadow(0 0 8px #8fb4f270);
 }
 
-@keyframes locked-badge-breathe {
+@keyframes locked-badge-glow {
   0%, 100% {
-    filter: brightness(.92);
+    filter: brightness(.94) drop-shadow(0 6px 5px #0000009c) drop-shadow(0 0 4px #5e91ee3d);
   }
 
   50% {
-    filter: brightness(1.06);
+    filter: brightness(1.06) drop-shadow(0 6px 5px #0000009c) drop-shadow(0 0 8px #8fb4f25c);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .object-hotspot.locked {
+  .hotspot-lock-badge {
     animation: none;
   }
 }
@@ -3670,6 +3702,11 @@ button:focus-visible {
   animation: 3.8s linear infinite exact-trace-spark;
 }
 
+.device-selection-trace.device-console .device-trace-base {
+  stroke-width: 2px;
+  stroke-linejoin: bevel;
+}
+
 @keyframes exact-trace-glow {
   0%, 100% {
     opacity: .6;
@@ -3691,9 +3728,3 @@ button:focus-visible {
     animation: none;
   }
 }
-
-.device-selection-trace.device-console path {
-  stroke-linejoin: miter;
-  stroke-miterlimit: 3;
-}
-

@@ -40,6 +40,9 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
     PUZZLES.find((puzzle) => puzzle.id === focusedId) ?? null
+  const focusedLevel = focusedPuzzle
+    ? PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) + 1
+    : null
   const questionIndex = activePuzzle?.questions[questionStep] ?? 0
   const question = GAME_QUESTIONS[questionIndex]
   const questionParts = question ? splitQuestion(question.question) : null
@@ -341,7 +344,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
             <div
               className="level-entry-card"
               role="dialog"
-              aria-label={`레벨 ${PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) + 1} 시작 안내`}
+              aria-label={`레벨 ${focusedLevel} 시작 안내`}
             >
               <button
                 className="level-entry-close"
@@ -350,23 +353,25 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
               >
                 ×
               </button>
-              <small>탐색 지점 발견</small>
-              <strong>
-                LEVEL{" "}
-                {PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) +
-                  1}
-              </strong>
+              <div className="level-entry-heading">
+                <span className="level-entry-index" aria-hidden="true">
+                  <small>LEVEL</small>
+                  <b>{focusedLevel}</b>
+                </span>
+                <span className="level-entry-title">
+                  <small>탐색 지점 발견</small>
+                  <strong>{focusedPuzzle.title}</strong>
+                </span>
+              </div>
               <p>
-                이 장치를 조사하면 LEVEL{" "}
-                {PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) +
-                  1}{" "}
-                문제를 풀 수 있어요.
+                장치를 조사하고 보안 문제를 해결해 탈출 코드 단서를 획득하세요.
               </p>
               <button
                 className="level-entry-start"
                 onClick={() => beginPuzzle(focusedPuzzle)}
               >
-                레벨 시작
+                <span>조사 시작</span>
+                <b aria-hidden="true">→</b>
               </button>
             </div>
           )}

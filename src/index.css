@@ -3111,63 +3111,143 @@ button:focus-visible {
 
 .level-entry-card {
   z-index: 12;
-  color: #f5f8ff;
-  backdrop-filter: blur(14px);
-  background: #051832f0;
-  border: 1px solid #8fb4f25c;
-  border-radius: 17px;
-  padding: 17px;
+  color: #eaf3fc;
+  background: #081a2ff5;
+  border: 1px solid #55708c;
+  border-radius: 11px;
+  padding: 14px;
   animation: .25s both level-card-in;
   position: absolute;
-  bottom: 18px;
+  bottom: 20px;
   left: 18px;
   right: 18px;
-  box-shadow: 0 16px 36px #00000061, inset 0 1px #ffffff0f;
+  box-shadow: 0 10px 24px #00000066;
 }
 
-.level-entry-card > small {
-  color: var(--blue-30);
-  letter-spacing: .11em;
-  font-size: 9px;
+.level-entry-heading {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding-right: 34px;
+  display: grid;
+}
+
+.level-entry-index {
+  color: #dfefff;
+  background: #102b49;
+  border: 1px solid #42688d;
+  border-radius: 6px;
+  grid-template-columns: auto auto;
+  place-items: center;
+  gap: 4px;
+  width: auto;
+  height: 27px;
+  padding: 0 8px;
+  display: grid;
+  clip-path: none;
+  box-shadow: none;
+}
+
+.level-entry-index small {
+  color: #8fb4f2;
+  letter-spacing: .08em;
+  font: 700 6px/1 Rubik, sans-serif;
+}
+
+.level-entry-index b {
+  font: 700 14px/1 Fredoka, sans-serif;
+}
+
+.level-entry-title {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.level-entry-title small {
+  color: #8fb4f2;
+  letter-spacing: .1em;
+  font-size: 8px;
   font-weight: 800;
 }
 
-.level-entry-card > strong {
-  margin-top: 5px;
-  font: 700 21px Fredoka, sans-serif;
-  display: block;
+.level-entry-title strong {
+  color: #f2f7fc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .level-entry-card > p {
-  color: #b8c8dc;
-  margin: 7px 34px 14px 0;
-  font-size: 13px;
+  color: #b1c2d4;
+  word-break: keep-all;
+  margin: 10px 1px 12px;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.5;
 }
 
 .level-entry-close {
-  color: #b8c8dc;
+  color: #aebfd1;
   cursor: pointer;
-  background: #ffffff12;
-  border-radius: 9px;
-  width: 30px;
-  height: 30px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 19px;
+  line-height: 1;
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 9px;
+  right: 9px;
+  box-shadow: none;
 }
 
 .level-entry-start {
-  border: 1px solid var(--blue-30);
-  background: var(--blue-50);
-  color: #fff;
+  color: #eaf4ff;
   cursor: pointer;
-  border-radius: 12px;
+  background: #174b80;
+  border: 1px solid #5e91ee;
+  border-radius: 8px;
+  clip-path: none;
+  justify-content: center;
+  align-items: center;
   width: 100%;
-  height: 46px;
-  font-size: 13px;
+  height: 42px;
+  padding: 0 42px;
+  font-size: 12px;
   font-weight: 800;
-  box-shadow: 0 4px 12px #114cb047;
+  letter-spacing: .01em;
+  transition: background .14s, border-color .14s;
+  display: flex;
+  position: relative;
+  box-shadow: none;
+}
+
+.level-entry-start b {
+  color: #c8ddf2;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  place-items: center;
+  width: auto;
+  height: auto;
+  font-size: 14px;
+  display: grid;
+  position: absolute;
+  right: 15px;
+}
+
+.level-entry-start:active {
+  background: #194b7d;
+  border-color: var(--blue-30);
+}
+
+.level-entry-close:active {
+  color: #eaf4ff;
+  background: #ffffff0d;
 }
 
 @keyframes ceiling-flicker {

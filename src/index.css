@@ -2813,109 +2813,91 @@ button:focus-visible {
   z-index: 8;
   pointer-events: none;
   white-space: nowrap;
-  backdrop-filter: blur(12px);
-  background:
-    linear-gradient(180deg, #153d6de8, #06182df2),
-    repeating-linear-gradient(90deg, #ffffff08 0 1px, transparent 1px 9px);
-  border: 1px solid #8fb4f27a;
-  border-radius: 15px;
-  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  background: #07182be8;
+  border: 1px solid #7895b052;
+  border-radius: 13px;
+  grid-template-columns: 62px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  width: min(calc(100% - 36px), 286px);
-  min-height: 58px;
-  padding: 7px 8px;
+  gap: 9px;
+  width: min(calc(100% - 40px), 252px);
+  min-height: 54px;
+  padding: 8px 11px 8px 9px;
   animation: 4.5s 1s both panorama-hint;
   display: grid;
   position: absolute;
   bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
-  box-shadow:
-    0 10px 26px #00081485,
-    inset 0 1px #d9edff24,
-    inset 0 -1px #030a15;
-}
-
-.room-pan-hint:before {
-  content: "";
-  background: linear-gradient(90deg, transparent, #8fb4f2d9, transparent);
-  width: 64%;
-  height: 1px;
-  position: absolute;
-  top: -1px;
-  left: 18%;
-  box-shadow: 0 0 8px #5e91ee;
+  box-shadow: 0 7px 18px #00081470;
 }
 
 .pan-hint-copy {
-  text-align: center;
+  text-align: left;
   grid-template-rows: auto auto;
-  justify-items: center;
-  gap: 2px;
+  gap: 3px;
   display: grid;
 }
 
 .pan-hint-copy small {
-  color: var(--blue-30);
-  font: 700 7px Rubik, sans-serif;
-  letter-spacing: .18em;
+  color: #9eb1c6;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: -.01em;
 }
 
 .pan-hint-copy strong {
   color: #f2f7ff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: -.02em;
   text-shadow: 0 1px 4px #000;
 }
 
-.pan-direction {
-  background: radial-gradient(circle at 50% 35%, #5e91ee47, #06182d 72%);
-  border: 1px solid #8fb4f266;
-  border-radius: 11px;
-  width: 42px;
-  height: 42px;
+.swipe-gesture {
+  width: 62px;
+  height: 36px;
   position: relative;
-  box-shadow:
-    inset 0 1px #d9edff1f,
-    0 3px 8px #00081473;
 }
 
-.pan-direction:before, .pan-direction:after {
+.swipe-gesture:before, .swipe-gesture:after {
   content: "";
-  border-top: 2px solid #d9edff;
-  border-right: 2px solid #d9edff;
-  width: 8px;
-  height: 8px;
+  border-top: 1.5px solid #8fb4f2;
+  border-right: 1.5px solid #8fb4f2;
+  width: 6px;
+  height: 6px;
   position: absolute;
-  top: 15px;
-  filter: drop-shadow(0 0 4px #5e91ee);
-  animation: 1.25s ease-in-out infinite pan-direction-pulse;
+  top: 14px;
+  opacity: .72;
 }
 
-.pan-direction:after {
-  animation-delay: .16s;
-}
-
-.pan-direction-left:before {
-  left: 11px;
+.swipe-gesture:before {
+  left: 3px;
   transform: rotate(-135deg);
 }
 
-.pan-direction-left:after {
+.swipe-gesture:after {
+  right: 3px;
+  transform: rotate(45deg);
+}
+
+.swipe-track {
+  background: #7895b052;
+  height: 1px;
+  position: absolute;
+  top: 17px;
+  left: 9px;
+  right: 9px;
+}
+
+.swipe-hand {
+  fill: #dcecff;
+  width: 24px;
+  height: 24px;
+  animation: 1.8s ease-in-out infinite swipe-hand-move;
+  position: absolute;
+  top: 6px;
   left: 19px;
-  transform: rotate(-135deg);
-}
-
-.pan-direction-right:before {
-  right: 19px;
-  transform: rotate(45deg);
-}
-
-.pan-direction-right:after {
-  right: 11px;
-  transform: rotate(45deg);
+  filter: drop-shadow(0 2px 2px #000814a3);
 }
 
 .room-code-rail {
@@ -2995,14 +2977,13 @@ button:focus-visible {
   }
 }
 
-@keyframes pan-direction-pulse {
+@keyframes swipe-hand-move {
   0%, 100% {
-    opacity: .28;
+    transform: translateX(-8px);
   }
 
   50% {
-    opacity: 1;
-    filter: drop-shadow(0 0 7px #8fb4f2);
+    transform: translateX(8px);
   }
 }
 
@@ -3019,9 +3000,8 @@ button:focus-visible {
     animation: none !important;
   }
 
-  .pan-direction:before, .pan-direction:after {
+  .swipe-hand {
     animation: none !important;
-    opacity: 1;
   }
 }
 

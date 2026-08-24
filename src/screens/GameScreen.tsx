@@ -363,12 +363,20 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
           {completed.length === 0 && !focusedPuzzle && (
             <div className="room-pan-hint" aria-hidden="true">
-              <span className="pan-direction pan-direction-left" />
-              <span className="pan-hint-copy">
-                <small>SECTOR SCAN</small>
-                <strong>좌우로 밀어 탐색</strong>
+              <span className="swipe-gesture">
+                <i className="swipe-track" />
+                <svg
+                  className="swipe-hand"
+                  viewBox="0 0 32 32"
+                  aria-hidden="true"
+                >
+                  <path d="M12.4 15.8V7.4a2.1 2.1 0 0 1 4.2 0v5.3-1.1a2 2 0 0 1 4 0v2-1a2 2 0 0 1 4 0v7.2c0 4.7-3.1 7.8-7.7 7.8h-1.5c-2.8 0-5-1.2-6.5-3.5l-3-4.5a2 2 0 0 1 3.2-2.4l3.3 3.7Z" />
+                </svg>
               </span>
-              <span className="pan-direction pan-direction-right" />
+              <span className="pan-hint-copy">
+                <strong>좌우로 둘러보기</strong>
+                <small>화면을 밀어 방 안을 탐색하세요</small>
+              </span>
             </div>
           )}
 

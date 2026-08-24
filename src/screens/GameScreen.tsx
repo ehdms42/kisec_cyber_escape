@@ -29,6 +29,8 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [score, setScore] = useState(0)
   const [answeredCount, setAnsweredCount] = useState(0)
+  const [levelScoreStart, setLevelScoreStart] = useState(0)
+  const [levelAnsweredStart, setLevelAnsweredStart] = useState(0)
   const [selectedHotspot, setSelectedHotspot] =
     useState<PuzzleId | "door" | null>(null)
   const [codeInput, setCodeInput] = useState<number[]>([])
@@ -102,6 +104,8 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
   const beginPuzzle = (puzzle: Puzzle) => {
     setFocusedId(null)
+    setLevelScoreStart(score)
+    setLevelAnsweredStart(answeredCount)
     setActiveId(puzzle.id)
     setQuestionStep(0)
     setSelectedAnswer(null)
@@ -164,13 +168,41 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     }, 900)
   }
 
+  const goBack = () => {
+    if (focusedPuzzle) {
+      setFocusedId(null)
+      setSelectedHotspot(null)
+      return
+    }
+
+    if (phase === "keypad") {
+      setPhase("room")
+      return
+    }
+
+    if ((phase === "quiz" || phase === "reveal") && activePuzzle) {
+      if (!completed.includes(activePuzzle.id)) {
+        setScore(levelScoreStart)
+        setAnsweredCount(levelAnsweredStart)
+        setFocusedId(activePuzzle.id)
+      }
+      setQuestionStep(0)
+      setSelectedAnswer(null)
+      setActiveId(null)
+      setPhase("room")
+      return
+    }
+
+    onExit()
+  }
+
   return (
     <div className="app-frame escape-game-screen">
       <header className="escape-hud">
         <button
           className="hud-exit"
-          onClick={onExit}
-          aria-label="홈으로 돌아가기"
+          onClick={goBack}
+          aria-label="이전 화면으로 돌아가기"
         >
           ←
         </button>

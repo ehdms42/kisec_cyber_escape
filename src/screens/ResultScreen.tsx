@@ -5,6 +5,7 @@ interface ResultScreenProps {
   score: number
   nickname: string
   onRestart: () => void
+  onBack: () => void
   onHome: () => void
 }
 
@@ -12,6 +13,7 @@ export default function ResultScreen({
   score,
   nickname,
   onRestart,
+  onBack,
   onHome,
 }: ResultScreenProps) {
   const rate = Math.round((score / QUIZ_LENGTH) * 100)
@@ -24,7 +26,7 @@ export default function ResultScreen({
       <div className="reward-shade" aria-hidden="true" />
 
       <header className="reward-topbar">
-        <button onClick={onHome} aria-label="홈으로 돌아가기">
+        <button onClick={onBack} aria-label="이전 화면으로 돌아가기">
           ←
         </button>
         <span>MISSION RESULT</span>

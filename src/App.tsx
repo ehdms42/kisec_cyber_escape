@@ -16,9 +16,11 @@ export default function App() {
   )
   const [score, setScore] = useState(0)
   const [gameKey, setGameKey] = useState(0)
+  const [hasGameSession, setHasGameSession] = useState(false)
 
   const startGame = () => {
     setGameKey((value) => value + 1)
+    setHasGameSession(true)
     setScreen("game")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -35,7 +37,20 @@ export default function App() {
     setScreen("story")
   }
 
-  const goHome = () => setScreen("title")
+  const goHome = () => {
+    setHasGameSession(false)
+    setScreen("title")
+  }
+
+  const goBackFromGame = () => {
+    setHasGameSession(false)
+    setScreen("story")
+  }
+
+  const goBackFromResult = () => {
+    setScreen("game")
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   const page = {
     title: <TitleScreen onStart={() => setScreen("nickname")} />,
@@ -43,12 +58,13 @@ export default function App() {
       <NicknameScreen initialName={nickname} onConfirm={confirmNickname} />
     ),
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,
-    game: <GameScreen key={gameKey} onFinish={finishGame} onExit={goHome} />,
+    game: null,
     result: (
       <ResultScreen
         score={score}
         nickname={nickname}
         onRestart={startGame}
+        onBack={goBackFromResult}
         onHome={goHome}
       />
     ),
@@ -56,7 +72,16 @@ export default function App() {
 
   return (
     <div className={`app-shell screen-${screen}`}>
-      {page}
+      {hasGameSession && (
+        <div hidden={screen !== "game"}>
+          <GameScreen
+            key={gameKey}
+            onFinish={finishGame}
+            onExit={goBackFromGame}
+          />
+        </div>
+      )}
+      {screen !== "game" && page}
       {(screen === "title" || screen === "result") && (
         <footer className="site-copyright">
           Copyright © KISEC. All rights reserved.

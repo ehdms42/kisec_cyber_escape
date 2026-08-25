@@ -2821,13 +2821,13 @@ button:focus-visible {
   white-space: nowrap;
   background: #07182be8;
   border: 1px solid #7895b052;
-  border-radius: 13px;
-  grid-template-columns: 62px minmax(0, 1fr);
+  border-radius: 14px;
+  grid-template-columns: 74px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
-  width: min(calc(100% - 40px), 252px);
-  min-height: 54px;
-  padding: 8px 11px 8px 9px;
+  gap: 11px;
+  width: min(calc(100% - 32px), 288px);
+  min-height: 66px;
+  padding: 10px 14px 10px 11px;
   animation: 4.5s 1s both panorama-hint;
   display: grid;
   position: absolute;
@@ -2840,69 +2840,49 @@ button:focus-visible {
 .pan-hint-copy {
   text-align: left;
   grid-template-rows: auto auto;
-  gap: 3px;
+  gap: 4px;
   display: grid;
 }
 
 .pan-hint-copy small {
   color: #9eb1c6;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
   letter-spacing: -.01em;
 }
 
 .pan-hint-copy strong {
   color: #f2f7ff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: -.02em;
   text-shadow: 0 1px 4px #000;
 }
 
 .swipe-gesture {
-  width: 62px;
-  height: 36px;
+  width: 74px;
+  height: 44px;
   position: relative;
 }
 
-.swipe-gesture:before, .swipe-gesture:after {
-  content: "";
-  border-top: 1.5px solid #8fb4f2;
-  border-right: 1.5px solid #8fb4f2;
-  width: 6px;
-  height: 6px;
-  position: absolute;
-  top: 14px;
-  opacity: .72;
-}
-
-.swipe-gesture:before {
-  left: 3px;
-  transform: rotate(-135deg);
-}
-
-.swipe-gesture:after {
-  right: 3px;
-  transform: rotate(45deg);
-}
-
 .swipe-track {
-  background: #7895b052;
+  background: linear-gradient(90deg, transparent, #7895b075 18% 82%, transparent);
+  border-radius: 999px;
   height: 1px;
   position: absolute;
-  top: 17px;
-  left: 9px;
-  right: 9px;
+  top: 22px;
+  left: 3px;
+  right: 3px;
 }
 
 .swipe-hand {
   fill: #dcecff;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   animation: 1.8s ease-in-out infinite swipe-hand-move;
   position: absolute;
-  top: 6px;
-  left: 19px;
+  top: 7px;
+  left: 22px;
   filter: drop-shadow(0 2px 2px #000814a3);
 }
 
@@ -2985,11 +2965,11 @@ button:focus-visible {
 
 @keyframes swipe-hand-move {
   0%, 100% {
-    transform: translateX(-8px);
+    transform: translateX(-11px);
   }
 
   50% {
-    transform: translateX(8px);
+    transform: translateX(11px);
   }
 }
 

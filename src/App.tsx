@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { QUIZ_LENGTH } from "./game/config"
+import DesignSystemScreen from "./screens/DesignSystemScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
 import OnboardingScreen from "./screens/OnboardingScreen"
@@ -11,6 +12,9 @@ type Screen = "title" | "nickname" | "story" | "game" | "result"
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
 
 export default function App() {
+  const showDesignSystem = new URLSearchParams(window.location.search).has(
+    "design-system",
+  )
   const [screen, setScreen] = useState<Screen>("result")
   const [nickname, setNickname] = useState(
     () => window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "",
@@ -64,6 +68,14 @@ export default function App() {
       <ResultScreen score={score} onBack={goBackFromResult} onHome={goHome} />
     ),
   }[screen]
+
+  if (showDesignSystem) {
+    return (
+      <div className="app-shell screen-design-system">
+        <DesignSystemScreen />
+      </div>
+    )
+  }
 
   return (
     <div className={`app-shell screen-${screen}`}>

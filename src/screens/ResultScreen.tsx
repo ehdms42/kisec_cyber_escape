@@ -1,18 +1,13 @@
-import type { CSSProperties } from "react"
-import { DOOR_CODE, QUIZ_LENGTH } from "../game/config"
+import { QUIZ_LENGTH } from "../game/config"
 
 interface ResultScreenProps {
   score: number
-  nickname: string
-  onRestart: () => void
   onBack: () => void
   onHome: () => void
 }
 
 export default function ResultScreen({
   score,
-  nickname,
-  onRestart,
   onBack,
   onHome,
 }: ResultScreenProps) {
@@ -29,89 +24,63 @@ export default function ResultScreen({
         <button onClick={onBack} aria-label="이전 화면으로 돌아가기">
           ←
         </button>
-        <span>MISSION RESULT</span>
-        <b>01</b>
       </header>
 
       <main
         className="reward-board"
-        aria-label={`정답 ${score}개, 별 ${score}개 획득`}
+        aria-label={`정답 ${score}개, 등급 별 ${rankStars}개 획득`}
       >
-        <div className="reward-ribbon success">
-          <small>VAULT UNLOCKED</small>
-          <strong>탈출 성공!</strong>
-        </div>
+        <header className="result-heading">
+          <h1>탈출 성공</h1>
+        </header>
 
-        <div className="rank-stars" aria-label={`등급 별 ${rankStars}개`}>
+        <div
+          className="rank-stars rank-stars-art"
+          aria-label={`등급 별 ${rankStars}개`}
+        >
           {[0, 1, 2].map((index) => (
-            <span key={index} className={index < rankStars ? "earned" : ""}>
-              ★
-            </span>
+            <img
+              key={index}
+              className={index < rankStars ? "earned" : ""}
+              src="/result-rank-star.svg"
+              alt=""
+              aria-hidden="true"
+            />
           ))}
         </div>
 
-        <p className="result-player">
-          <span>AGENT</span>
-          {nickname}
-        </p>
+        <p className="result-message">보안 임무를 무사히 완료했어요.</p>
 
         <section className="reward-card">
-          <div className="final-door-code">
-            <small>ESCAPE CODE COMPLETE</small>
-            <div>
-              {DOOR_CODE.map((digit) => (
-                <b key={digit} className="revealed">
-                  {digit}
-                </b>
-              ))}
-            </div>
-          </div>
           <div className="reward-scoreline">
             <span>
-              <small>SECURITY SCORE</small>
+              <small>정답</small>
               <strong>
                 {score}
                 <i>/{QUIZ_LENGTH}</i>
               </strong>
             </span>
             <span>
-              <small>REWARD</small>
+              <small>획득 경험치</small>
               <strong>
                 +{rewardXp}
-                <i> XP</i>
+                <i> 경험치</i>
               </strong>
             </span>
           </div>
 
-          <div className="clue-stars" aria-label={`단서 별 ${score}개 획득`}>
-            {Array.from({ length: QUIZ_LENGTH }, (_, index) => (
-              <span
-                key={index}
-                className={index < score ? "earned" : ""}
-                style={
-                  { "--star-delay": `${0.55 + index * 0.08}s` } as CSSProperties
-                }
-              >
-                ★
-              </span>
-            ))}
+          <div className="result-progress-copy">
+            <span>보안 문항 정답률</span>
+            <strong>{rate}%</strong>
           </div>
-          <p>
-            단서 별 <strong>{score}개</strong> 획득
-          </p>
 
-          <div className="xp-track" aria-label={`경험치 ${rate}%`}>
+          <div className="xp-track" aria-label={`정답률 ${rate}%`}>
             <span style={{ width: `${rate}%` }} />
           </div>
-          <small className="escape-rule">보안 문항 정답률 {rate}%</small>
         </section>
 
         <button className="reward-primary" onClick={onHome}>
           기록 완료
-          <span>▶</span>
-        </button>
-        <button className="reward-secondary" onClick={onRestart}>
-          다시 플레이
         </button>
       </main>
     </div>

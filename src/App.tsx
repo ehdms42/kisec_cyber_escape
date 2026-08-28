@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { QUIZ_LENGTH } from "./game/config"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
 import OnboardingScreen from "./screens/OnboardingScreen"
@@ -10,11 +11,11 @@ type Screen = "title" | "nickname" | "story" | "game" | "result"
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("title")
+  const [screen, setScreen] = useState<Screen>("result")
   const [nickname, setNickname] = useState(
     () => window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "",
   )
-  const [score, setScore] = useState(0)
+  const [score, setScore] = useState(QUIZ_LENGTH)
   const [gameKey, setGameKey] = useState(0)
   const [hasGameSession, setHasGameSession] = useState(false)
 
@@ -60,13 +61,7 @@ export default function App() {
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,
     game: null,
     result: (
-      <ResultScreen
-        score={score}
-        nickname={nickname}
-        onRestart={startGame}
-        onBack={goBackFromResult}
-        onHome={goHome}
-      />
+      <ResultScreen score={score} onBack={goBackFromResult} onHome={goHome} />
     ),
   }[screen]
 

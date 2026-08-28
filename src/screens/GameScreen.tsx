@@ -91,12 +91,9 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
   const openPuzzle = (puzzle: Puzzle, index: number) => {
     setSelectedHotspot(puzzle.id)
+    setFocusedId(null)
 
-    if (completed.includes(puzzle.id)) {
-      setActiveId(puzzle.id)
-      setPhase("reveal")
-      return
-    }
+    if (completed.includes(puzzle.id)) return
 
     if (index === completed.length) setFocusedId(puzzle.id)
     else setFocusedId(null)
@@ -252,8 +249,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
           <div className="room-viewport" ref={roomViewportRef}>
             <div className="room-panorama">
               <img
-                key={completed.length}
-                src={ROOM_STAGES[completed.length]}
+                src={ROOM_STAGES[0]}
                 alt="네 개의 단서 장치가 놓인 서버 금고 전경"
               />
               <div className="ceiling-light-flicker" aria-hidden="true" />
@@ -310,8 +306,16 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                       }`}
                     >
                       {state === "complete" && (
-                        <span className="hotspot-check" aria-hidden="true">
-                          ✓
+                        <span
+                          className="hotspot-complete-badge"
+                          aria-hidden="true"
+                        >
+                          <svg
+                            className="hotspot-complete-symbol"
+                            viewBox="0 0 32 36"
+                          >
+                            <path d="m8 18 5.5 5.5L24 12" />
+                          </svg>
                         </span>
                       )}
                       {state === "available" && (
@@ -340,7 +344,6 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                           </svg>
                         </span>
                       )}
-                      <small>{puzzle.shortTitle}</small>
                     </button>
                   </Fragment>
                 )
@@ -355,9 +358,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                   if (completed.length === PUZZLES.length) setPhase("keypad")
                 }}
                 aria-label="최종 출입문"
-              >
-                <span />
-              </button>
+              />
             </div>
           </div>
 
@@ -391,15 +392,12 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                 onClick={() => setFocusedId(null)}
                 aria-label="안내 닫기"
               >
-                ×
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 5l10 10M15 5 5 15" />
+                </svg>
               </button>
               <div className="level-entry-heading">
-                <span className="level-entry-index" aria-hidden="true">
-                  <small>LEVEL</small>
-                  <b>{focusedLevel}</b>
-                </span>
                 <span className="level-entry-title">
-                  <small>탐색 지점 발견</small>
                   <strong>{focusedPuzzle.title}</strong>
                 </span>
               </div>
@@ -411,7 +409,6 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                 onClick={() => beginPuzzle(focusedPuzzle)}
               >
                 <span>조사 시작</span>
-                <b aria-hidden="true">→</b>
               </button>
             </div>
           )}
@@ -473,19 +470,16 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
               </button>
             )}
             <div>
-              <small>OBJECT {completed.length + 1} / 4</small>
               <strong>{activePuzzle.title}</strong>
             </div>
           </div>
 
           {phase === "quiz" && question && questionParts && (
             <section className="object-quiz-panel">
-              <div className="question-meta">
-                <span>
-                  {activePuzzle.shortTitle} {questionStep + 1}/
-                  {activePuzzle.questions.length}
-                </span>
-                <span>{question.category}</span>
+              <div className="question-progress">
+                <b>
+                  문항 {questionStep + 1} / {activePuzzle.questions.length}
+                </b>
               </div>
               <QuestionPanel
                 question={question}
@@ -504,8 +498,14 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                   </strong>
                   {selectedAnswer === question.answer && (
                     <span className="answer-reward">
-                      <i>★ +1</i>
-                      <i>$ +{COINS_PER_CORRECT_ANSWER}</i>
+                      <i>
+                        <img src="/header-star.svg" alt="" aria-hidden="true" />
+                        +1
+                      </i>
+                      <i>
+                        <img src="/header-coin.svg" alt="" aria-hidden="true" />
+                        +{COINS_PER_CORRECT_ANSWER}
+                      </i>
                     </span>
                   )}
                   <p>{question.explanation}</p>
@@ -525,16 +525,11 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
           {phase === "reveal" && (
             <section className="clue-reveal">
-              <small>
-                {completed.includes(activePuzzle.id)
-                  ? "COLLECTED CLUE"
-                  : "OBJECT CLEARED"}
-              </small>
               <h2>{activePuzzle.clue}</h2>
               <div className="clue-digit">
                 <span>{activePuzzle.digit}</span>
                 <i>
-                  CODE{" "}
+                  탈출 코드{" "}
                   {completed.length +
                     (completed.includes(activePuzzle.id) ? 0 : 1)}{" "}
                   / 4
@@ -543,7 +538,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
               <button className="room-primary" onClick={collectClue}>
                 {completed.includes(activePuzzle.id)
                   ? "방으로 돌아가기"
-                  : "숫자 획득"}
+                  : "코드 획득"}
               </button>
             </section>
           )}
@@ -569,7 +564,6 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
             </button>
           </div>
           <section className="keypad-panel">
-            <small>FINAL ACCESS</small>
             <h1>
               {isUnlocking
                 ? "잠금 해제"

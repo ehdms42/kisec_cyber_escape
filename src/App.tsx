@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { QUIZ_LENGTH } from "./game/config"
 import DesignSystemScreen from "./screens/DesignSystemScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
@@ -15,11 +14,11 @@ export default function App() {
   const showDesignSystem = new URLSearchParams(window.location.search).has(
     "design-system",
   )
-  const [screen, setScreen] = useState<Screen>("result")
+  const [screen, setScreen] = useState<Screen>("title")
   const [nickname, setNickname] = useState(
     () => window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "",
   )
-  const [score, setScore] = useState(QUIZ_LENGTH)
+  const [score, setScore] = useState(0)
   const [gameKey, setGameKey] = useState(0)
   const [hasGameSession, setHasGameSession] = useState(false)
 

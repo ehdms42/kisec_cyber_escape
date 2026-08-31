@@ -22,6 +22,7 @@ import type {
 import DocumentImportPanel from "../components/admin/DocumentImportPanel"
 import InstitutionManagement from "../components/admin/InstitutionManagement"
 import QuestionEditor from "../components/admin/QuestionEditor"
+import RankingManagement from "../components/admin/RankingManagement"
 import {
   isAdminDemoMode,
   isSupabaseConfigured,
@@ -325,6 +326,7 @@ export default function AdminScreen() {
         {isAdminDemoMode && <span>개발 미리보기</span>}
         <a href="/admin">문제</a>
         <a href="/admin/institutions">기관 · 응시</a>
+        <a href="/admin/rankings">탈출 순위</a>
         <a href="/">게임 화면</a>
         {!isAdminDemoMode && (
           <button type="button" onClick={signOut}>
@@ -340,6 +342,15 @@ export default function AdminScreen() {
       <div className="admin-screen">
         {adminHeader}
         <InstitutionManagement />
+      </div>
+    )
+  }
+
+  if (window.location.pathname.startsWith("/admin/rankings")) {
+    return (
+      <div className="admin-screen">
+        {adminHeader}
+        <RankingManagement />
       </div>
     )
   }

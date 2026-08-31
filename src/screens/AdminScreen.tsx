@@ -391,6 +391,19 @@ export default function AdminScreen() {
           </button>
         )}
 
+        <section
+          className={`admin-question-health ${
+            publishedCount >= 30 ? "is-ready" : "needs-questions"
+          }`}
+        >
+          <b>{publishedCount >= 30 ? "게임 출제 가능" : "공개 문제 부족"}</b>
+          <span>
+            게임에는 공개 상태인 문제를 번호순으로 30개 출제합니다. 현재 공개
+            문제는
+            {` ${publishedCount}개`}입니다.
+          </span>
+        </section>
+
         <section className="admin-stat-grid" aria-label="문제 현황">
           <article>
             <span>전체 문제</span>

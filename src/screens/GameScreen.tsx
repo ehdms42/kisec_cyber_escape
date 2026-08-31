@@ -16,7 +16,7 @@ import {
   normalizeGameProgress,
   type GameProgress,
 } from "../game/session"
-import { QUESTIONS } from "../data/questions"
+import type { Question } from "../data/questions"
 
 interface GameScreenProps {
   onFinish: (score: number) => void | Promise<void>
@@ -26,7 +26,6 @@ interface GameScreenProps {
   onAnswer?: (questionOrdinal: number, selectedAnswer: number) => void
 }
 
-const GAME_QUESTIONS = QUESTIONS.slice(0, QUIZ_LENGTH)
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
 
 export default function GameScreen({
@@ -62,6 +61,9 @@ export default function GameScreen({
   const [hasCodeError, setHasCodeError] = useState(false)
   const [isUnlocking, setIsUnlocking] = useState(false)
   const [focusedId, setFocusedId] = useState<PuzzleId | null>(initial.focusedId)
+  const [gameQuestions, setGameQuestions] = useState<Question[]>([])
+  const [questionLoadError, setQuestionLoadError] = useState("")
+  const [questionLoadKey, setQuestionLoadKey] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
@@ -71,7 +73,7 @@ export default function GameScreen({
     ? PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) + 1
     : null
   const questionIndex = activePuzzle?.questions[questionStep] ?? 0
-  const question = GAME_QUESTIONS[questionIndex]
+  const question = gameQuestions[questionIndex]
   const questionParts = question ? splitQuestion(question.question) : null
   const answered = selectedAnswer !== null
   const level = activePuzzle
@@ -101,6 +103,29 @@ export default function GameScreen({
       image.src = src
     })
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setQuestionLoadError("")
+    import("../data/questionProvider")
+      .then(({ loadGameQuestions }) => loadGameQuestions())
+      .then((questions) => {
+        if (!cancelled) setGameQuestions(questions)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setGameQuestions([])
+          setQuestionLoadError(
+            error instanceof Error
+              ? error.message
+              : "문제를 불러오지 못했습니다.",
+          )
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [questionLoadKey])
 
   useEffect(() => {
     if (phase !== "room") return
@@ -146,6 +171,7 @@ export default function GameScreen({
   ])
 
   const openPuzzle = (puzzle: Puzzle, index: number) => {
+    if (gameQuestions.length !== QUIZ_LENGTH) return
     setSelectedHotspot(puzzle.id)
     setFocusedId(null)
 
@@ -289,6 +315,28 @@ export default function GameScreen({
           </div>
         </div>
       </header>
+
+      {gameQuestions.length !== QUIZ_LENGTH && (
+        <div className="game-question-gate" role="status" aria-live="polite">
+          <section>
+            <img src="/lock-front-blue-v2.png" alt="" aria-hidden="true" />
+            <strong>
+              {questionLoadError
+                ? "문제를 준비하지 못했습니다"
+                : "문제 확인 중…"}
+            </strong>
+            {questionLoadError && <p>{questionLoadError}</p>}
+            {questionLoadError && (
+              <button
+                type="button"
+                onClick={() => setQuestionLoadKey((value) => value + 1)}
+              >
+                다시 확인
+              </button>
+            )}
+          </section>
+        </div>
+      )}
 
       <section
         className="level-sheet"

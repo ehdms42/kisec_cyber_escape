@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "ko-KR"
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  in_progress_fortune: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: true
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "[skip review]"
+
+  path_filters:
+    - "!dist/**"
+    - "!node_modules/**"
+    - "!public/**/*.png"
+    - "!public/**/*.jpg"
+    - "!public/**/*.jpeg"
+    - "!public/**/*.webp"
+
+  path_instructions:
+    - path: "src/**/*.{ts,tsx}"
+      instructions: |
+        React 19와 TypeScript 코드로 검토하세요.
+        - 화면 전환, 뒤로가기, 게임 재시작 시 상태가 유실되거나 잘못 초기화되지 않는지 확인하세요.
+        - 점수, 진행도, 보상, 잠금 해제 조건의 경계값과 배열 인덱스를 확인하세요.
+        - stale state, 불필요한 렌더링, 누락된 cleanup, 잘못된 key 사용을 지적하세요.
+        - 키보드 조작, 접근 가능한 이름, 포커스 이동 등 기본 접근성을 확인하세요.
+        - 실제 오류 가능성이 낮은 취향성 리팩터링은 제안하지 마세요.
+
+    - path: "src/game/**"
+      instructions: |
+        게임 규칙과 데이터 무결성을 중점적으로 검토하세요.
+        - 문제 수, 점수 합계, 레벨별 범위가 UI에 표시되는 값과 일치하는지 확인하세요.
+        - 완료한 문제를 중복 집계하거나 점수를 반복 획득할 수 있는 경로를 확인하세요.
+        - 잘못된 설정 데이터가 들어와도 화면 전체가 중단되지 않는지 확인하세요.
+
+    - path: "src/**/*.css"
+      instructions: |
+        모바일 게임 UI의 회귀를 중점적으로 검토하세요.
+        - 320px 이상의 모바일 화면에서 가로 넘침, 잘림, 중앙 정렬 이탈이 없는지 확인하세요.
+        - z-index, overflow, fixed/sticky 요소가 팝업이나 입력 영역을 가리지 않는지 확인하세요.
+        - focus-visible, 색상 대비, 터치 영역과 prefers-reduced-motion 대응을 확인하세요.
+        - DESIGN_SYSTEM.md의 색상, 글꼴, 모서리와 버튼 규칙에서 벗어나는 변경을 지적하세요.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "DESIGN_SYSTEM.md"

@@ -20,6 +20,7 @@ import type {
   QuestionStatus,
 } from "../admin/types"
 import DocumentImportPanel from "../components/admin/DocumentImportPanel"
+import InstitutionManagement from "../components/admin/InstitutionManagement"
 import QuestionEditor from "../components/admin/QuestionEditor"
 import {
   isAdminDemoMode,
@@ -314,23 +315,38 @@ export default function AdminScreen() {
     )
   }
 
+  const adminHeader = (
+    <header className="admin-header">
+      <div>
+        <small>KISEC CYBER QUEST</small>
+        <h1>운영 관리</h1>
+      </div>
+      <nav>
+        {isAdminDemoMode && <span>개발 미리보기</span>}
+        <a href="/admin">문제</a>
+        <a href="/admin/institutions">기관 · 응시</a>
+        <a href="/">게임 화면</a>
+        {!isAdminDemoMode && (
+          <button type="button" onClick={signOut}>
+            로그아웃
+          </button>
+        )}
+      </nav>
+    </header>
+  )
+
+  if (window.location.pathname.startsWith("/admin/institutions")) {
+    return (
+      <div className="admin-screen">
+        {adminHeader}
+        <InstitutionManagement />
+      </div>
+    )
+  }
+
   return (
     <div className="admin-screen">
-      <header className="admin-header">
-        <div>
-          <small>KISEC CYBER QUEST</small>
-          <h1>운영 관리</h1>
-        </div>
-        <nav>
-          {isAdminDemoMode && <span>개발 미리보기</span>}
-          <a href="/">게임 화면</a>
-          {!isAdminDemoMode && (
-            <button type="button" onClick={signOut}>
-              로그아웃
-            </button>
-          )}
-        </nav>
-      </header>
+      {adminHeader}
 
       <main className="admin-content">
         <section className="admin-page-heading">

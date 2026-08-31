@@ -11,32 +11,57 @@ import {
   ROOM_STAGES,
 } from "../game/config"
 import { splitQuestion } from "../game/question"
+import {
+  EMPTY_GAME_PROGRESS,
+  normalizeGameProgress,
+  type GameProgress,
+} from "../game/session"
 import { QUESTIONS } from "../data/questions"
 
 interface GameScreenProps {
-  onFinish: (score: number) => void
+  onFinish: (score: number) => void | Promise<void>
   onExit: () => void
+  initialProgress?: Record<string, unknown> | null
+  onProgress?: (progress: GameProgress) => void
+  onAnswer?: (questionOrdinal: number, selectedAnswer: number) => void
 }
 
 const GAME_QUESTIONS = QUESTIONS.slice(0, QUIZ_LENGTH)
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
 
-export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
-  const [phase, setPhase] = useState<GamePhase>("room")
-  const [completed, setCompleted] = useState<PuzzleId[]>([])
-  const [activeId, setActiveId] = useState<PuzzleId | null>(null)
-  const [questionStep, setQuestionStep] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
-  const [score, setScore] = useState(0)
-  const [answeredCount, setAnsweredCount] = useState(0)
-  const [levelScoreStart, setLevelScoreStart] = useState(0)
-  const [levelAnsweredStart, setLevelAnsweredStart] = useState(0)
+export default function GameScreen({
+  onFinish,
+  onExit,
+  initialProgress,
+  onProgress,
+  onAnswer,
+}: GameScreenProps) {
+  const initial = useRef(
+    initialProgress
+      ? normalizeGameProgress(initialProgress)
+      : EMPTY_GAME_PROGRESS,
+  ).current
+  const [phase, setPhase] = useState<GamePhase>(initial.phase)
+  const [completed, setCompleted] = useState<PuzzleId[]>(initial.completed)
+  const [activeId, setActiveId] = useState<PuzzleId | null>(initial.activeId)
+  const [questionStep, setQuestionStep] = useState(initial.questionStep)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(
+    initial.selectedAnswer,
+  )
+  const [score, setScore] = useState(initial.score)
+  const [answeredCount, setAnsweredCount] = useState(initial.answeredCount)
+  const [levelScoreStart, setLevelScoreStart] = useState(
+    initial.levelScoreStart,
+  )
+  const [levelAnsweredStart, setLevelAnsweredStart] = useState(
+    initial.levelAnsweredStart,
+  )
   const [selectedHotspot, setSelectedHotspot] =
-    useState<PuzzleId | "door" | null>(null)
-  const [codeInput, setCodeInput] = useState<number[]>([])
+    useState<PuzzleId | "door" | null>(initial.selectedHotspot)
+  const [codeInput, setCodeInput] = useState<number[]>(initial.codeInput)
   const [hasCodeError, setHasCodeError] = useState(false)
   const [isUnlocking, setIsUnlocking] = useState(false)
-  const [focusedId, setFocusedId] = useState<PuzzleId | null>(null)
+  const [focusedId, setFocusedId] = useState<PuzzleId | null>(initial.focusedId)
   const roomViewportRef = useRef<HTMLDivElement>(null)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
@@ -89,6 +114,37 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     return () => window.cancelAnimationFrame(frame)
   }, [completed.length, phase])
 
+  useEffect(() => {
+    onProgress?.({
+      phase,
+      completed,
+      activeId,
+      questionStep,
+      selectedAnswer,
+      score,
+      answeredCount,
+      levelScoreStart,
+      levelAnsweredStart,
+      selectedHotspot,
+      codeInput,
+      focusedId,
+    })
+  }, [
+    activeId,
+    answeredCount,
+    codeInput,
+    completed,
+    focusedId,
+    levelAnsweredStart,
+    levelScoreStart,
+    onProgress,
+    phase,
+    questionStep,
+    score,
+    selectedAnswer,
+    selectedHotspot,
+  ])
+
   const openPuzzle = (puzzle: Puzzle, index: number) => {
     setSelectedHotspot(puzzle.id)
     setFocusedId(null)
@@ -115,6 +171,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     setSelectedAnswer(index)
     setAnsweredCount((value) => value + 1)
     if (index === question.answer) setScore((value) => value + 1)
+    onAnswer?.(question.id, index)
   }
 
   const goToNextQuestion = () => {
@@ -154,7 +211,12 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
       setIsUnlocking(true)
-      window.setTimeout(() => onFinish(score), 850)
+      window.setTimeout(() => {
+        Promise.resolve(onFinish(score)).catch(() => {
+          setIsUnlocking(false)
+          setHasCodeError(true)
+        })
+      }, 850)
       return
     }
 

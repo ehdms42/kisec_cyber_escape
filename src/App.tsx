@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { lazy, Suspense, useState } from "react"
 import DesignSystemScreen from "./screens/DesignSystemScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
@@ -9,8 +9,10 @@ import TitleScreen from "./screens/TitleScreen"
 type Screen = "title" | "nickname" | "story" | "game" | "result"
 
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
+const AdminScreen = lazy(() => import("./screens/AdminScreen"))
 
 export default function App() {
+  const showAdmin = window.location.pathname.replace(/\/+$/, "") === "/admin"
   const showDesignSystem = new URLSearchParams(window.location.search).has(
     "design-system",
   )
@@ -67,6 +69,16 @@ export default function App() {
       <ResultScreen score={score} onBack={goBackFromResult} onHome={goHome} />
     ),
   }[screen]
+
+  if (showAdmin) {
+    return (
+      <Suspense
+        fallback={<div className="admin-loading">관리자 화면 준비 중…</div>}
+      >
+        <AdminScreen />
+      </Suspense>
+    )
+  }
 
   if (showDesignSystem) {
     return (

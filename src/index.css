@@ -845,8 +845,10 @@ button:focus-visible {
 .onboarding-screen {
   background: var(--blue-95);
   color: #fff;
+  cursor: pointer;
   min-height: 100dvh;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .onboarding-room, .onboarding-shade {

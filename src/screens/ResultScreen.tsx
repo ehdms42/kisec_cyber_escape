@@ -6,14 +6,31 @@ interface ResultScreenProps {
   onHome: () => void
 }
 
+function getResultGrade(rate: number) {
+  if (rate >= 90) {
+    return { stars: 3, message: "빈틈없는 보안 실력이에요." }
+  }
+  if (rate >= 70) {
+    return { stars: 2, message: "안정적으로 보안 임무를 완수했어요." }
+  }
+  if (rate >= 40) {
+    return { stars: 1, message: "보안 임무를 끝까지 완수했어요." }
+  }
+  return {
+    stars: 0,
+    message: "임무를 완수했어요. 놓친 문항을 다시 확인해 보세요.",
+  }
+}
+
 export default function ResultScreen({
   score,
   onBack,
   onHome,
 }: ResultScreenProps) {
-  const rate = Math.round((score / QUIZ_LENGTH) * 100)
-  const rankStars = score >= 27 ? 3 : score >= 21 ? 2 : score >= 12 ? 1 : 0
-  const rewardXp = score * 100
+  const safeScore = Math.min(Math.max(score, 0), QUIZ_LENGTH)
+  const rate = Math.round((safeScore / QUIZ_LENGTH) * 100)
+  const grade = getResultGrade(rate)
+  const rewardXp = safeScore * 100
 
   return (
     <div className="app-frame reward-screen escaped server-result">
@@ -28,7 +45,7 @@ export default function ResultScreen({
 
       <main
         className="reward-board"
-        aria-label={`정답 ${score}개, 등급 별 ${rankStars}개 획득`}
+        aria-label={`정답 ${safeScore}개, 등급 별 ${grade.stars}개 획득`}
       >
         <header className="result-heading">
           <h1>탈출 성공</h1>
@@ -36,12 +53,12 @@ export default function ResultScreen({
 
         <div
           className="rank-stars rank-stars-art"
-          aria-label={`등급 별 ${rankStars}개`}
+          aria-label={`등급 별 ${grade.stars}개`}
         >
           {[0, 1, 2].map((index) => (
             <img
               key={index}
-              className={index < rankStars ? "earned" : ""}
+              className={index < grade.stars ? "earned" : ""}
               src="/result-rank-star.svg"
               alt=""
               aria-hidden="true"
@@ -49,14 +66,14 @@ export default function ResultScreen({
           ))}
         </div>
 
-        <p className="result-message">보안 임무를 무사히 완료했어요.</p>
+        <p className="result-message">{grade.message}</p>
 
         <section className="reward-card">
           <div className="reward-scoreline">
             <span>
               <small>정답</small>
               <strong>
-                {score}
+                {safeScore}
                 <i>/{QUIZ_LENGTH}</i>
               </strong>
             </span>

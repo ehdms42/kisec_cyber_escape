@@ -1,7 +1,10 @@
 node_modules/
+.pnpm-store/
 dist/
 tmp/
 
 .DS_Store
 *.local
+.env.server
+server/.data/
 *.log

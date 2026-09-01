@@ -24,6 +24,7 @@ function createInitialValue(
         sourceReference: question.sourceReference,
         status: question.status,
         sourceDocumentId: question.sourceDocumentId,
+        answerDocumentId: question.answerDocumentId,
       }
     : {
         ordinal: nextOrdinal,
@@ -35,6 +36,7 @@ function createInitialValue(
         sourceReference: "",
         status: "draft",
         sourceDocumentId: null,
+        answerDocumentId: null,
       }
 }
 
@@ -140,7 +142,6 @@ export default function QuestionEditor({
       >
         <header>
           <div>
-            <small>{question ? "QUESTION EDIT" : "NEW QUESTION"}</small>
             <h2 id="question-editor-title">
               {question ? `${question.ordinal}번 문제 수정` : "문제 직접 추가"}
             </h2>

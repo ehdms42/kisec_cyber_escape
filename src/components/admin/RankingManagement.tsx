@@ -12,6 +12,7 @@ import type {
   PrizeStatus,
   RankingEntry,
 } from "../../admin/rankingTypes"
+import AdminIcon from "./AdminIcon"
 
 const PRIZE_STATUS_LABEL: Record<PrizeStatus, string> = {
   selected: "1위 선정",
@@ -141,7 +142,8 @@ export default function RankingManagement() {
       "순위",
       "기관",
       "배포",
-      "닉네임",
+      "요원명",
+      "부서명",
       "검증 점수",
       "응답 문항",
       "소요 시간(초)",
@@ -152,6 +154,7 @@ export default function RankingManagement() {
       entry.institutionName,
       entry.campaignTitle,
       entry.nickname,
+      entry.department,
       entry.verifiedScore,
       entry.answeredCount,
       entry.elapsedSeconds,
@@ -174,7 +177,6 @@ export default function RankingManagement() {
     <main className="admin-content ranking-admin-content">
       <section className="admin-page-heading ranking-heading">
         <div>
-          <small>VERIFIED LEADERBOARD</small>
           <h2>탈출 순위</h2>
           <p>
             서버 검증 점수, 소요 시간, 완료 순서로 배포별 순위를 계산합니다.
@@ -193,7 +195,13 @@ export default function RankingManagement() {
               </option>
             ))}
           </select>
-          <button type="button" onClick={exportCsv} disabled={!entries.length}>
+          <button
+            className="admin-action-with-icon"
+            type="button"
+            onClick={exportCsv}
+            disabled={!entries.length}
+          >
+            <AdminIcon name="download" />
             CSV 내보내기
           </button>
         </div>
@@ -259,7 +267,6 @@ export default function RankingManagement() {
       <section className="admin-question-section ranking-table-panel">
         <header>
           <div>
-            <small>RANKING RECORDS</small>
             <h3>{selectedCampaign?.title ?? "배포를 선택해 주세요"}</h3>
           </div>
           {award ? (
@@ -286,11 +293,12 @@ export default function RankingManagement() {
             </div>
           ) : (
             <button
-              className="admin-primary"
+              className="admin-primary admin-action-with-icon"
               type="button"
               onClick={selectWinner}
               disabled={!entries.length || saving}
             >
+              <AdminIcon name="award" />
               1위 수상자 확정
             </button>
           )}
@@ -317,7 +325,10 @@ export default function RankingManagement() {
                 <b>{entry.rank}</b>
                 <span>
                   <strong>{entry.nickname}</strong>
-                  <small>{entry.institutionName}</small>
+                  <small>
+                    {entry.department || "부서 미입력"} ·{" "}
+                    {entry.institutionName}
+                  </small>
                 </span>
                 <em>
                   {entry.verifiedScore} / {entry.answeredCount}

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from "react"
-import { extractQuestionDocument } from "../../admin/documentExtraction"
+import { extractQuestionSet } from "../../admin/documentExtraction"
 import {
   registerQuestionDocument,
   updateQuestionDocument,
@@ -7,11 +7,12 @@ import {
 import type { ExtractedQuestion, QuestionInput } from "../../admin/types"
 
 interface DocumentImportPanelProps {
-  userId: string
   nextOrdinal: number
   onImport: (questions: QuestionInput[]) => Promise<void>
   onClose: () => void
 }
+
+type DocumentRole = "question" | "answer"
 
 function isImportable(question: ExtractedQuestion) {
   return Boolean(
@@ -23,14 +24,18 @@ function isImportable(question: ExtractedQuestion) {
 }
 
 export default function DocumentImportPanel({
-  userId,
   nextOrdinal,
   onImport,
   onClose,
 }: DocumentImportPanelProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [documentId, setDocumentId] = useState<string | null>(null)
-  const [rawText, setRawText] = useState("")
+  const [questionFile, setQuestionFile] = useState<File | null>(null)
+  const [answerFile, setAnswerFile] = useState<File | null>(null)
+  const [questionDocumentId, setQuestionDocumentId] = useState<string | null>(
+    null,
+  )
+  const [answerDocumentId, setAnswerDocumentId] = useState<string | null>(null)
+  const [questionText, setQuestionText] = useState("")
+  const [answerText, setAnswerText] = useState("")
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [processing, setProcessing] = useState(false)
@@ -43,24 +48,43 @@ export default function DocumentImportPanel({
     [questions, selected],
   )
 
-  const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0]
-    if (!nextFile) return
-
-    setFile(nextFile)
+  const selectFile = (
+    role: DocumentRole,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const nextFile = event.target.files?.[0] ?? null
+    if (role === "question") setQuestionFile(nextFile)
+    else setAnswerFile(nextFile)
+    setQuestionDocumentId(null)
+    setAnswerDocumentId(null)
+    setQuestionText("")
+    setAnswerText("")
     setQuestions([])
     setSelected(new Set())
-    setRawText("")
     setError("")
+  }
+
+  const analyzeDocuments = async () => {
+    if (!questionFile || !answerFile || processing) return
     setProcessing(true)
-    let registeredId: string | null = null
+    setError("")
+    const pairId = crypto.randomUUID()
+    let registeredQuestionId: string | null = null
+    let registeredAnswerId: string | null = null
 
     try {
-      const document = await registerQuestionDocument(nextFile, userId)
-      registeredId = document.id
-      setDocumentId(document.id)
-      const result = await extractQuestionDocument(nextFile)
-      setRawText(result.text)
+      const [questionDocument, answerDocument] = await Promise.all([
+        registerQuestionDocument(questionFile, "question", pairId),
+        registerQuestionDocument(answerFile, "answer", pairId),
+      ])
+      registeredQuestionId = questionDocument.id
+      registeredAnswerId = answerDocument.id
+      setQuestionDocumentId(questionDocument.id)
+      setAnswerDocumentId(answerDocument.id)
+
+      const result = await extractQuestionSet(questionFile, answerFile)
+      setQuestionText(result.questionText)
+      setAnswerText(result.answerText)
       setQuestions(result.questions)
       setSelected(
         new Set(
@@ -69,36 +93,49 @@ export default function DocumentImportPanel({
             .filter((index) => index >= 0),
         ),
       )
-      await updateQuestionDocument(
-        document.id,
-        "review",
-        result.text,
-        result.questions.length,
-      )
+
+      await Promise.all([
+        updateQuestionDocument(
+          questionDocument.id,
+          "review",
+          result.questionText,
+          result.questions.length,
+        ),
+        updateQuestionDocument(
+          answerDocument.id,
+          "review",
+          result.answerText,
+          result.questions.filter((question) => question.correctAnswer >= 0)
+            .length,
+        ),
+      ])
 
       if (result.questions.length === 0) {
         setError(
-          "텍스트는 추출했지만 문제 번호와 보기를 구분하지 못했습니다. 원문 형식을 확인해 주세요.",
+          "문제지에서 문제 번호와 보기를 찾지 못했습니다. 추출 원문과 문서 형식을 확인해 주세요.",
+        )
+      } else if (!result.questions.some(isImportable)) {
+        setError(
+          "문제와 해답의 번호를 연결하지 못했습니다. 두 문서의 문제 번호 표기를 확인해 주세요.",
         )
       }
     } catch (extractError) {
       const message =
         extractError instanceof Error
           ? extractError.message
-          : "문서를 처리하지 못했습니다."
+          : "문서 세트를 처리하지 못했습니다."
       setError(message)
-      if (registeredId) {
-        await updateQuestionDocument(
-          registeredId,
-          "failed",
-          "",
-          0,
-          message,
-        ).catch(() => undefined)
-      }
+      await Promise.all(
+        [registeredQuestionId, registeredAnswerId]
+          .filter((id): id is string => Boolean(id))
+          .map((id) =>
+            updateQuestionDocument(id, "failed", "", 0, message).catch(
+              () => undefined,
+            ),
+          ),
+      )
     } finally {
       setProcessing(false)
-      event.target.value = ""
     }
   }
 
@@ -112,7 +149,15 @@ export default function DocumentImportPanel({
   }
 
   const importSelected = async () => {
-    if (!file || !documentId || selectedCount === 0) return
+    if (
+      !questionFile ||
+      !answerFile ||
+      !questionDocumentId ||
+      !answerDocumentId ||
+      selectedCount === 0
+    ) {
+      return
+    }
     setSaving(true)
     setError("")
 
@@ -130,21 +175,28 @@ export default function DocumentImportPanel({
         explanation: question.explanation,
         sourceReference:
           question.sourceReference ||
-          `${file.name}${
-            question.sourceNumber ? ` ${question.sourceNumber}번` : ""
-          }`,
+          `${questionFile.name} ${question.sourceNumber ?? offset + 1}번`,
         status: "draft",
-        sourceDocumentId: documentId,
+        sourceDocumentId: questionDocumentId,
+        answerDocumentId,
       }))
 
     try {
       await onImport(inputs)
-      await updateQuestionDocument(
-        documentId,
-        "completed",
-        rawText,
-        inputs.length,
-      )
+      await Promise.all([
+        updateQuestionDocument(
+          questionDocumentId,
+          "completed",
+          questionText,
+          inputs.length,
+        ),
+        updateQuestionDocument(
+          answerDocumentId,
+          "completed",
+          answerText,
+          inputs.length,
+        ),
+      ])
       onClose()
     } catch (importError) {
       setError(
@@ -167,42 +219,58 @@ export default function DocumentImportPanel({
       >
         <header>
           <div>
-            <small>DOCUMENT IMPORT</small>
-            <h2 id="document-import-title">문제지에서 문제 가져오기</h2>
-            <p>
-              PDF·HWP·HWPX 원문은 비공개로 저장되며 결과는 초안으로 추가됩니다.
-            </p>
+            <h2 id="document-import-title">문제 세트 가져오기</h2>
+            <p>문제지 1부와 해답지 1부를 문제 번호로 맞춰 초안을 만듭니다.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="가져오기 닫기">
             ×
           </button>
         </header>
 
-        <label
-          className={`admin-file-drop ${processing ? "is-processing" : ""}`}
-        >
-          <input
-            type="file"
-            accept=".pdf,.hwp,.hwpx,application/pdf"
-            onChange={selectFile}
-            disabled={processing || saving}
-          />
-          <b>{processing ? "문서를 분석하고 있습니다…" : "문제지 선택"}</b>
-          <span>최대 20MB · 스캔 PDF는 문자 인식 후 업로드</span>
-        </label>
+        <div className="admin-document-pair">
+          <label className="admin-file-drop">
+            <input
+              type="file"
+              accept=".pdf,.hwp,.hwpx,application/pdf"
+              onChange={(event) => selectFile("question", event)}
+              disabled={processing || saving}
+            />
+            <b>{questionFile ? questionFile.name : "문제지 선택"}</b>
+            <span>PDF · HWP · HWPX</span>
+          </label>
+          <label className="admin-file-drop">
+            <input
+              type="file"
+              accept=".pdf,.hwp,.hwpx,application/pdf"
+              onChange={(event) => selectFile("answer", event)}
+              disabled={processing || saving}
+            />
+            <b>{answerFile ? answerFile.name : "해답지 선택"}</b>
+            <span>문제지와 다른 형식도 가능</span>
+          </label>
+        </div>
 
-        {file && (
+        <button
+          className="admin-pair-analyze"
+          type="button"
+          onClick={analyzeDocuments}
+          disabled={!questionFile || !answerFile || processing || saving}
+        >
+          {processing ? "두 문서를 분석하고 있습니다…" : "문제·해답 맞춰보기"}
+        </button>
+
+        {questions.length > 0 && (
           <div className="admin-import-summary">
             <span>
-              <small>파일</small>
-              <b>{file.name}</b>
+              <small>문제지</small>
+              <b>{questionFile?.name}</b>
             </span>
             <span>
               <small>추출</small>
               <b>{questions.length}문항</b>
             </span>
             <span>
-              <small>선택</small>
+              <small>등록 가능</small>
               <b>{selectedCount}문항</b>
             </span>
           </div>
@@ -237,7 +305,9 @@ export default function DocumentImportPanel({
                     <strong>{question.prompt || "본문 인식 실패"}</strong>
                     <em>
                       보기 {question.options.length}개 · 정답{" "}
-                      {question.correctAnswer + 1}번
+                      {question.correctAnswer >= 0
+                        ? `${question.correctAnswer + 1}번`
+                        : "미확인"}
                     </em>
                     {question.warnings.length > 0 && (
                       <b>{question.warnings.join(" · ")}</b>
@@ -249,10 +319,13 @@ export default function DocumentImportPanel({
           </div>
         )}
 
-        {rawText && (
+        {(questionText || answerText) && (
           <details className="admin-source-preview">
             <summary>추출 원문 일부 확인</summary>
-            <pre>{rawText.slice(0, 1800)}</pre>
+            <b>문제지</b>
+            <pre>{questionText.slice(0, 1200)}</pre>
+            <b>해답지</b>
+            <pre>{answerText.slice(0, 1200)}</pre>
           </details>
         )}
 

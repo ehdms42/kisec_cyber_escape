@@ -19,6 +19,7 @@ import type {
   Campaign,
   Institution,
 } from "../../admin/institutionTypes"
+import AdminIcon from "./AdminIcon"
 
 const ATTEMPT_STATUS_LABEL: Record<AttemptStatus, string> = {
   in_progress: "진행 중",
@@ -130,22 +131,23 @@ export default function InstitutionManagement() {
     <main className="admin-content institution-admin-content">
       <section className="admin-page-heading">
         <div>
-          <small>DISTRIBUTION CONTROL</small>
           <h2>기관 · 응시 관리</h2>
           <p>기관별 배포 링크와 단일 응시 상태를 서버에서 관리합니다.</p>
         </div>
         <div>
           <button
+            className="admin-action-with-icon"
             type="button"
             onClick={() => {
               setEditingInstitution(null)
               setInstitutionFormOpen(true)
             }}
           >
+            <AdminIcon name="plus" />
             기관 추가
           </button>
           <button
-            className="admin-primary"
+            className="admin-primary admin-action-with-icon"
             type="button"
             disabled={institutions.length === 0}
             onClick={() => {
@@ -153,7 +155,8 @@ export default function InstitutionManagement() {
               setCampaignFormOpen(true)
             }}
           >
-            + 배포 만들기
+            <AdminIcon name="campaign" />
+            배포 만들기
           </button>
         </div>
       </section>
@@ -196,7 +199,6 @@ export default function InstitutionManagement() {
         <section className="admin-question-section institution-list-panel">
           <header>
             <div>
-              <small>INSTITUTIONS</small>
               <h3>기관 목록</h3>
             </div>
           </header>
@@ -231,7 +233,6 @@ export default function InstitutionManagement() {
         <section className="admin-question-section campaign-list-panel">
           <header>
             <div>
-              <small>DISTRIBUTION LINKS</small>
               <h3>배포 링크</h3>
             </div>
           </header>
@@ -271,7 +272,6 @@ export default function InstitutionManagement() {
       <section className="admin-question-section attempt-admin-panel">
         <header>
           <div>
-            <small>ATTEMPT CONTROL</small>
             <h3>응시 현황</h3>
           </div>
           <select
@@ -304,6 +304,7 @@ export default function InstitutionManagement() {
                     {attempt.institutionName} · {attempt.campaignTitle}
                   </small>
                   <strong>{attempt.nickname}</strong>
+                  <small>{attempt.department || "부서 미입력"}</small>
                 </span>
                 <i className={attempt.status}>
                   {ATTEMPT_STATUS_LABEL[attempt.status]}
@@ -421,7 +422,6 @@ function InstitutionForm({
       <form className="admin-editor compact-admin-form" onSubmit={submit}>
         <header>
           <div>
-            <small>INSTITUTION</small>
             <h2>{institution ? "기관 설정" : "기관 추가"}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="닫기">
@@ -531,7 +531,6 @@ function CampaignForm({
       <form className="admin-editor compact-admin-form" onSubmit={submit}>
         <header>
           <div>
-            <small>DISTRIBUTION</small>
             <h2>{campaign ? "배포 설정" : "배포 링크 만들기"}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="닫기">

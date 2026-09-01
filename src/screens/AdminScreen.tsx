@@ -9,83 +9,123 @@ import {
   createQuestions,
   deleteQuestion,
   importLegacyQuestions,
-  listQuestionDocuments,
   listQuestions,
   saveQuestion,
 } from "../admin/questionRepository"
 import type {
   AdminQuestion,
-  QuestionDocument,
   QuestionInput,
   QuestionStatus,
 } from "../admin/types"
+import {
+  AdminApiError,
+  getAdminSession,
+  loginAdmin,
+  logoutAdmin,
+} from "../admin/serverApi"
 import DocumentImportPanel from "../components/admin/DocumentImportPanel"
+import AdminIcon from "../components/admin/AdminIcon"
 import InstitutionManagement from "../components/admin/InstitutionManagement"
 import QuestionEditor from "../components/admin/QuestionEditor"
 import RankingManagement from "../components/admin/RankingManagement"
-import {
-  isAdminDemoMode,
-  isSupabaseConfigured,
-  supabase,
-} from "../lib/supabase"
 
-type AccessState = "loading" | "setup" | "login" | "checking" | "ready" | "forbidden"
+type AccessState = "loading" | "setup" | "login" | "checking" | "ready"
 type StatusFilter = "all" | QuestionStatus
 
-const DOCUMENT_STATUS_LABEL: Record<QuestionDocument["status"], string> = {
-  processing: "처리 중",
-  review: "검수 대기",
-  completed: "등록 완료",
-  failed: "처리 실패",
+function returnToPrevious() {
+  if (window.history.length > 1) {
+    window.history.back()
+    return
+  }
+  window.location.assign("/")
+}
+
+function AdminBackButton({ compact = false }: { compact?: boolean }) {
+  return (
+    <button
+      className={compact ? "admin-header-back" : "admin-gate-back"}
+      type="button"
+      onClick={returnToPrevious}
+      aria-label="이전 화면으로 돌아가기"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 5 8 12l7 7M8.5 12H20" />
+      </svg>
+      {!compact && <span>이전 화면</span>}
+    </button>
+  )
 }
 
 function AdminLogin({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
+  const [passwordVisible, setPasswordVisible] = useState(false)
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!supabase) return
-
     setSubmitting(true)
     setError("")
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
 
-    if (loginError) setError("이메일 또는 비밀번호를 확인해 주세요.")
-    else onLogin()
-    setSubmitting(false)
+    try {
+      await loginAdmin(identifier, password)
+      onLogin()
+    } catch (loginError) {
+      setError(
+        loginError instanceof Error
+          ? loginError.message
+          : "관리자 서버에 로그인하지 못했습니다.",
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <div className="admin-gate">
+      <AdminBackButton />
       <form onSubmit={submit}>
-        <small>AUTHORIZED PERSONNEL ONLY</small>
+        <img
+          className="admin-gate-logo"
+          src="/cyber-quest-lock-logo.png"
+          alt="Cyber Quest"
+        />
         <h1>관리자 로그인</h1>
-        <p>문제와 배포 정보를 관리할 권한이 있는 계정으로 로그인하세요.</p>
         <label>
-          <span>이메일</span>
+          <span>관리자 아이디</span>
           <input
-            type="email"
+            type="text"
             autoComplete="username"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={identifier}
+            onChange={(event) => setIdentifier(event.target.value)}
+            placeholder="관리자 아이디"
             required
           />
         </label>
         <label>
           <span>비밀번호</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+          <div className="admin-password-field">
+            <input
+              type={passwordVisible ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setPasswordVisible((visible) => !visible)}
+              aria-label={passwordVisible ? "비밀번호 숨기기" : "비밀번호 표시"}
+              aria-pressed={passwordVisible}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+                <circle cx="12" cy="12" r="2.7" />
+                {!passwordVisible && <path d="m4 4 16 16" />}
+              </svg>
+            </button>
+          </div>
         </label>
         {error && <p className="admin-form-error">{error}</p>}
         <button className="admin-primary" type="submit" disabled={submitting}>
@@ -99,10 +139,8 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
 
 export default function AdminScreen() {
   const [accessState, setAccessState] = useState<AccessState>("loading")
-  const [userId, setUserId] = useState("")
   const [accessMessage, setAccessMessage] = useState("")
   const [questions, setQuestions] = useState<AdminQuestion[]>([])
-  const [documents, setDocuments] = useState<QuestionDocument[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
@@ -114,67 +152,33 @@ export default function AdminScreen() {
   const [notice, setNotice] = useState("")
 
   const verifyAdmin = useCallback(async () => {
-    if (isAdminDemoMode) {
-      setUserId("demo-admin")
-      setAccessState("ready")
-      return
-    }
-    if (!isSupabaseConfigured || !supabase) {
-      setAccessState("setup")
-      return
-    }
-
     setAccessState("checking")
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      setAccessState("login")
-      return
-    }
-
-    const { data, error } = await supabase
-      .from("admin_profiles")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (error || !data) {
-      setUserId(user.id)
+    try {
+      const session = await getAdminSession()
+      if (!session.userId) throw new Error("관리자 세션을 확인하지 못했습니다.")
+      setAccessState("ready")
+    } catch (error) {
+      if (error instanceof AdminApiError && error.status === 401) {
+        setAccessState("login")
+        return
+      }
       setAccessMessage(
-        error
-          ? "관리자 권한을 확인하지 못했습니다. 데이터베이스 설정을 확인해 주세요."
-          : "이 계정에는 관리자 권한이 없습니다.",
+        error instanceof Error
+          ? error.message
+          : "관리자 API 서버에 연결하지 못했습니다.",
       )
-      setAccessState("forbidden")
-      return
+      setAccessState("setup")
     }
-
-    setUserId(user.id)
-    setAccessState("ready")
   }, [])
 
   useEffect(() => {
     void verifyAdmin()
-    if (!supabase) return
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => void verifyAdmin())
-    return () => subscription.unsubscribe()
   }, [verifyAdmin])
 
   const refreshData = useCallback(async () => {
     setLoadingData(true)
     try {
-      const [nextQuestions, nextDocuments] = await Promise.all([
-        listQuestions(),
-        listQuestionDocuments(),
-      ])
-      setQuestions(nextQuestions)
-      setDocuments(nextDocuments)
+      setQuestions(await listQuestions())
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -273,9 +277,8 @@ export default function AdminScreen() {
   }
 
   const signOut = async () => {
-    if (supabase) await supabase.auth.signOut()
+    await logoutAdmin().catch(() => undefined)
     setAccessState("login")
-    setUserId("")
   }
 
   if (accessState === "loading" || accessState === "checking") {
@@ -285,14 +288,31 @@ export default function AdminScreen() {
   if (accessState === "setup") {
     return (
       <div className="admin-gate">
+        <AdminBackButton />
         <section>
-          <small>SETUP REQUIRED</small>
+          <img
+            className="admin-gate-logo"
+            src="/cyber-quest-lock-logo.png"
+            alt="Cyber Quest"
+          />
           <h1>관리자 서버 연결 필요</h1>
           <p>
-            `.env.local`에 Supabase URL과 Publishable Key를 설정하고
-            데이터베이스 마이그레이션을 적용해 주세요.
+            관리자 API 서버가 실행 중인지 확인하고 서버 전용 환경변수를 설정해
+            주세요.
           </p>
-          <code>VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY</code>
+          {accessMessage && <code>{accessMessage}</code>}
+          <div className="admin-gate-actions">
+            <button
+              className="admin-primary"
+              type="button"
+              onClick={verifyAdmin}
+            >
+              다시 연결
+            </button>
+            <button type="button" onClick={returnToPrevious}>
+              이전 화면
+            </button>
+          </div>
           <a href="/">게임으로 돌아가기</a>
         </section>
       </div>
@@ -301,38 +321,44 @@ export default function AdminScreen() {
 
   if (accessState === "login") return <AdminLogin onLogin={verifyAdmin} />
 
-  if (accessState === "forbidden") {
-    return (
-      <div className="admin-gate">
-        <section>
-          <small>ACCESS DENIED</small>
-          <h1>관리자 권한 없음</h1>
-          <p>{accessMessage}</p>
-          <button className="admin-primary" type="button" onClick={signOut}>
-            다른 계정으로 로그인
-          </button>
-        </section>
-      </div>
-    )
-  }
-
+  const adminPath = window.location.pathname
   const adminHeader = (
     <header className="admin-header">
-      <div>
-        <small>KISEC CYBER QUEST</small>
-        <h1>운영 관리</h1>
+      <div className="admin-header-leading">
+        <AdminBackButton compact />
+        <a className="admin-brand" href="/admin" aria-label="관리자 초기 화면">
+          <img src="/cyber-quest-lock-logo.png" alt="Cyber Quest" />
+        </a>
       </div>
       <nav>
-        {isAdminDemoMode && <span>개발 미리보기</span>}
-        <a href="/admin">문제</a>
-        <a href="/admin/institutions">기관 · 응시</a>
-        <a href="/admin/rankings">탈출 순위</a>
-        <a href="/">게임 화면</a>
-        {!isAdminDemoMode && (
-          <button type="button" onClick={signOut}>
-            로그아웃
-          </button>
-        )}
+        <a className={adminPath === "/admin" ? "active" : ""} href="/admin">
+          <AdminIcon name="questions" />
+          문제
+        </a>
+        <a
+          className={
+            adminPath.startsWith("/admin/institutions") ? "active" : ""
+          }
+          href="/admin/institutions"
+        >
+          <AdminIcon name="institutions" />
+          기관 · 응시
+        </a>
+        <a
+          className={adminPath.startsWith("/admin/rankings") ? "active" : ""}
+          href="/admin/rankings"
+        >
+          <AdminIcon name="ranking" />
+          탈출 순위
+        </a>
+        <a href="/">
+          <AdminIcon name="game" />
+          게임 화면
+        </a>
+        <button className="admin-logout" type="button" onClick={signOut}>
+          <AdminIcon name="logout" />
+          로그아웃
+        </button>
       </nav>
     </header>
   )
@@ -362,20 +388,25 @@ export default function AdminScreen() {
       <main className="admin-content">
         <section className="admin-page-heading">
           <div>
-            <small>QUESTION BANK</small>
             <h2>문제 관리</h2>
             <p>게임에 사용할 문제를 등록하고 공개 상태를 관리합니다.</p>
           </div>
           <div>
-            <button type="button" onClick={() => setImportOpen(true)}>
+            <button
+              className="admin-action-with-icon"
+              type="button"
+              onClick={() => setImportOpen(true)}
+            >
+              <AdminIcon name="upload" />
               PDF · HWP 가져오기
             </button>
             <button
-              className="admin-primary"
+              className="admin-primary admin-action-with-icon"
               type="button"
               onClick={openNewQuestion}
             >
-              + 문제 추가
+              <AdminIcon name="plus" />
+              문제 추가
             </button>
           </div>
         </section>
@@ -391,19 +422,6 @@ export default function AdminScreen() {
           </button>
         )}
 
-        <section
-          className={`admin-question-health ${
-            publishedCount >= 30 ? "is-ready" : "needs-questions"
-          }`}
-        >
-          <b>{publishedCount >= 30 ? "게임 출제 가능" : "공개 문제 부족"}</b>
-          <span>
-            게임에는 공개 상태인 문제를 번호순으로 30개 출제합니다. 현재 공개
-            문제는
-            {` ${publishedCount}개`}입니다.
-          </span>
-        </section>
-
         <section className="admin-stat-grid" aria-label="문제 현황">
           <article>
             <span>전체 문제</span>
@@ -416,10 +434,6 @@ export default function AdminScreen() {
           <article>
             <span>검수 대기</span>
             <strong>{draftCount}</strong>
-          </article>
-          <article>
-            <span>업로드 문서</span>
-            <strong>{documents.length}</strong>
           </article>
         </section>
 
@@ -443,7 +457,12 @@ export default function AdminScreen() {
               <option value="published">공개</option>
               <option value="draft">초안</option>
             </select>
-            <button type="button" onClick={handleLegacyImport}>
+            <button
+              className="admin-action-with-icon"
+              type="button"
+              onClick={handleLegacyImport}
+            >
+              <AdminIcon name="sync" />
               기존 게임 문제 동기화
             </button>
           </div>
@@ -477,12 +496,14 @@ export default function AdminScreen() {
                       type="button"
                       onClick={() => openQuestion(question)}
                     >
+                      <AdminIcon name="edit" />
                       수정
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(question)}
                     >
+                      <AdminIcon name="delete" />
                       삭제
                     </button>
                   </div>
@@ -490,36 +511,6 @@ export default function AdminScreen() {
               ))
             )}
           </div>
-        </section>
-
-        <section className="admin-document-section">
-          <header>
-            <div>
-              <small>SOURCE DOCUMENTS</small>
-              <h3>최근 업로드</h3>
-            </div>
-            <span>원문은 관리자만 접근할 수 있습니다.</span>
-          </header>
-          {documents.length === 0 ? (
-            <p className="admin-empty">업로드한 문제지가 없습니다.</p>
-          ) : (
-            <div className="admin-document-list">
-              {documents.slice(0, 8).map((document) => (
-                <article key={document.id}>
-                  <span>
-                    <strong>{document.originalName}</strong>
-                    <small>
-                      {new Date(document.createdAt).toLocaleString("ko-KR")}
-                    </small>
-                  </span>
-                  <b>{document.extractedCount}문항</b>
-                  <i className={document.status}>
-                    {DOCUMENT_STATUS_LABEL[document.status]}
-                  </i>
-                </article>
-              ))}
-            </div>
-          )}
         </section>
       </main>
 
@@ -533,7 +524,6 @@ export default function AdminScreen() {
       )}
       {importOpen && (
         <DocumentImportPanel
-          userId={userId}
           nextOrdinal={nextOrdinal}
           onImport={handleDocumentImport}
           onClose={() => setImportOpen(false)}

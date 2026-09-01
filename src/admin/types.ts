@@ -12,6 +12,7 @@ export interface AdminQuestion {
   sourceReference: string
   status: QuestionStatus
   sourceDocumentId: string | null
+  answerDocumentId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -27,6 +28,7 @@ export interface QuestionInput {
   sourceReference: string
   status: QuestionStatus
   sourceDocumentId?: string | null
+  answerDocumentId?: string | null
 }
 
 export interface QuestionDocument {
@@ -37,6 +39,8 @@ export interface QuestionDocument {
   status: DocumentStatus
   extractedCount: number
   extractionError: string | null
+  documentRole: "question" | "answer" | null
+  pairId: string | null
   createdAt: string
 }
 

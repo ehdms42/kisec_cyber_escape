@@ -1,27 +1,9 @@
-import { isAdminDemoMode, supabase } from "../lib/supabase"
+import { isAdminDemoMode } from "../lib/supabase"
 import { listAttempts } from "./institutionRepository"
 import type { PrizeAward, PrizeStatus, RankingEntry } from "./rankingTypes"
+import { adminRequest } from "./serverApi"
 
 const DEMO_PRIZE_KEY = "cyber-quest-demo-prize-awards"
-
-interface RankingRpcRow {
-  rank: number
-  attempt_id: string
-  campaign_id: string
-  campaign_title: string
-  institution_name: string
-  nickname: string
-  verified_score: number
-  answered_count: number
-  elapsed_seconds: number
-  started_at: string
-  completed_at: string
-}
-
-function requireSupabase() {
-  if (!supabase) throw new Error("Supabase 환경 변수가 설정되지 않았습니다.")
-  return supabase
-}
 
 function readDemoPrizes() {
   const stored = window.localStorage.getItem(DEMO_PRIZE_KEY)
@@ -76,6 +58,7 @@ export async function listRankings(
           campaignTitle: attempt.campaignTitle,
           institutionName: attempt.institutionName,
           nickname: attempt.nickname,
+          department: attempt.department,
           verifiedScore: attempt.verifiedScore,
           answeredCount: attempt.answeredCount,
           elapsedSeconds: Math.max(
@@ -92,55 +75,15 @@ export async function listRankings(
     )
   }
 
-  const { data, error } = await requireSupabase().rpc("admin_get_rankings", {
-    p_campaign_id: campaignId ?? null,
-  })
-  if (error) throw error
-  return (data as RankingRpcRow[]).map((row) => ({
-    rank: Number(row.rank),
-    attemptId: row.attempt_id,
-    campaignId: row.campaign_id,
-    campaignTitle: row.campaign_title,
-    institutionName: row.institution_name,
-    nickname: row.nickname,
-    verifiedScore: row.verified_score,
-    answeredCount: row.answered_count,
-    elapsedSeconds: row.elapsed_seconds,
-    startedAt: row.started_at,
-    completedAt: row.completed_at,
-  }))
+  const query = campaignId
+    ? `?campaignId=${encodeURIComponent(campaignId)}`
+    : ""
+  return adminRequest<RankingEntry[]>(`/rankings${query}`)
 }
 
 export async function listPrizeAwards(): Promise<PrizeAward[]> {
   if (isAdminDemoMode) return readDemoPrizes()
-  const { data, error } = await requireSupabase()
-    .from("prize_awards")
-    .select(
-      "id, campaign_id, attempt_id, status, note, selected_at, delivered_at, campaigns(title, institutions(name)), game_attempts(participants(nickname))",
-    )
-    .order("selected_at", { ascending: false })
-  if (error) throw error
-  return data.map((row) => {
-    const campaign = row.campaigns as unknown as {
-      title: string
-      institutions: { name: string } | null
-    } | null
-    const attempt = row.game_attempts as unknown as {
-      participants: { nickname: string } | null
-    } | null
-    return {
-      id: row.id,
-      campaignId: row.campaign_id,
-      campaignTitle: campaign?.title ?? "배포 종료",
-      institutionName: campaign?.institutions?.name ?? "알 수 없는 기관",
-      attemptId: row.attempt_id,
-      nickname: attempt?.participants?.nickname ?? "알 수 없음",
-      status: row.status as PrizeStatus,
-      note: row.note,
-      selectedAt: row.selected_at,
-      deliveredAt: row.delivered_at,
-    }
-  })
+  return adminRequest<PrizeAward[]>("/prize-awards")
 }
 
 export async function selectCampaignWinner(
@@ -159,6 +102,7 @@ export async function selectCampaignWinner(
       institutionName: winner.institutionName,
       attemptId: winner.attemptId,
       nickname: winner.nickname,
+      department: winner.department,
       status: "selected",
       note: existing?.note ?? "",
       selectedAt: new Date().toISOString(),
@@ -171,15 +115,9 @@ export async function selectCampaignWinner(
     return award
   }
 
-  const { error } = await requireSupabase().rpc("select_campaign_winner", {
-    p_campaign_id: campaignId,
+  return adminRequest<PrizeAward | null>(`/campaigns/${campaignId}/winner`, {
+    method: "POST",
   })
-  if (error) throw error
-  return (
-    (await listPrizeAwards()).find(
-      (award) => award.campaignId === campaignId,
-    ) ?? null
-  )
 }
 
 export async function updatePrizeAward(
@@ -204,10 +142,8 @@ export async function updatePrizeAward(
     return
   }
 
-  const { error } = await requireSupabase().rpc("update_prize_award", {
-    p_campaign_id: campaignId,
-    p_status: status,
-    p_note: note,
+  await adminRequest<void>(`/campaigns/${campaignId}/prize-award`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, note }),
   })
-  if (error) throw error
 }

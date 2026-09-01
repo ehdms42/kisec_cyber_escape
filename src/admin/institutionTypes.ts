@@ -27,6 +27,7 @@ export interface AttemptSummary {
   campaignTitle: string
   institutionName: string
   nickname: string
+  department: string
   status: AttemptStatus
   answeredCount: number
   verifiedScore: number
@@ -48,6 +49,7 @@ export interface AttemptSession {
   resumeToken: string | null
   status: AttemptStatus
   nickname: string
+  department: string
   institutionName: string
   campaignTitle: string
   requiredQuestionCount: number

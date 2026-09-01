@@ -5,6 +5,7 @@ export interface RankingEntry {
   campaignTitle: string
   institutionName: string
   nickname: string
+  department: string
   verifiedScore: number
   answeredCount: number
   elapsedSeconds: number
@@ -21,6 +22,7 @@ export interface PrizeAward {
   institutionName: string
   attemptId: string
   nickname: string
+  department: string
   status: PrizeStatus
   note: string
   selectedAt: string

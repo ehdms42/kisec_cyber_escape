@@ -11,7 +11,7 @@ export const isSupabaseConfigured = Boolean(
 export const isAdminDemoMode =
   import.meta.env.DEV &&
   !isSupabaseConfigured &&
-  import.meta.env.VITE_ADMIN_DEMO_MODE !== "false"
+  import.meta.env.VITE_ADMIN_DEMO_MODE === "true"
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabasePublishableKey!, {

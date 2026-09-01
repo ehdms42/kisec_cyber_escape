@@ -2,15 +2,17 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { AttemptSession, PublicCampaign } from "./admin/institutionTypes"
 import { EMPTY_GAME_PROGRESS, type GameProgress } from "./game/session"
 import DesignSystemScreen from "./screens/DesignSystemScreen"
+import DepartmentScreen from "./screens/DepartmentScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
 import OnboardingScreen from "./screens/OnboardingScreen"
 import ResultScreen from "./screens/ResultScreen"
 import TitleScreen from "./screens/TitleScreen"
 
-type Screen = "title" | "nickname" | "story" | "game" | "result" | "locked"
+type Screen = "title" | "nickname" | "department" | "story" | "game" | "result" | "locked"
 
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
+const DEPARTMENT_STORAGE_KEY = "cyber-quest-department"
 const AdminScreen = lazy(() => import("./screens/AdminScreen"))
 const CAMPAIGN_TOKEN = new URLSearchParams(window.location.search).get(
   "campaign",
@@ -25,6 +27,9 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("title")
   const [nickname, setNickname] = useState(
     () => window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "",
+  )
+  const [department, setDepartment] = useState(
+    () => window.localStorage.getItem(DEPARTMENT_STORAGE_KEY) ?? "",
   )
   const [score, setScore] = useState(0)
   const [gameKey, setGameKey] = useState(0)
@@ -107,15 +112,25 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const confirmNickname = async (name: string, participantCode: string) => {
+  const confirmNickname = (name: string) => {
     setNickname(name)
     window.localStorage.setItem(NICKNAME_STORAGE_KEY, name)
+    setScreen("department")
+  }
+
+  const confirmDepartment = async (
+    departmentName: string,
+    participantCode: string,
+  ) => {
+    setDepartment(departmentName)
+    window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, departmentName)
     if (CAMPAIGN_TOKEN) {
       const { startOrResumeAttempt } = await loadAttemptApi()
       const session = await startOrResumeAttempt(
         CAMPAIGN_TOKEN,
         participantCode,
-        name,
+        nickname,
+        departmentName,
       )
       setAttemptSession(session)
       if (session.status !== "in_progress") {
@@ -200,10 +215,13 @@ export default function App() {
   const page = {
     title: <TitleScreen onStart={() => setScreen("nickname")} />,
     nickname: (
-      <NicknameScreen
-        initialName={nickname}
+      <NicknameScreen initialName={nickname} onConfirm={confirmNickname} />
+    ),
+    department: (
+      <DepartmentScreen
+        initialDepartment={department}
         campaignName={campaign?.institutionName}
-        onConfirm={confirmNickname}
+        onConfirm={confirmDepartment}
       />
     ),
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,

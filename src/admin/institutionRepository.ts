@@ -2,12 +2,12 @@ import { isAdminDemoMode, supabase } from "../lib/supabase"
 import { QUESTIONS } from "../data/questions"
 import type {
   AttemptSession,
-  AttemptStatus,
   AttemptSummary,
   Campaign,
   Institution,
   PublicCampaign,
 } from "./institutionTypes"
+import { adminRequest } from "./serverApi"
 
 const DEMO_INSTITUTION_KEY = "cyber-quest-demo-institutions"
 const DEMO_CAMPAIGN_KEY = "cyber-quest-demo-campaigns"
@@ -72,18 +72,7 @@ function updateDemoSession(
 
 export async function listInstitutions(): Promise<Institution[]> {
   if (isAdminDemoMode) return demoInstitutions()
-  const { data, error } = await requireSupabase()
-    .from("institutions")
-    .select("id, name, slug, active, created_at")
-    .order("created_at", { ascending: false })
-  if (error) throw error
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    active: row.active,
-    createdAt: row.created_at,
-  }))
+  return adminRequest<Institution[]>("/institutions")
 }
 
 export async function saveInstitution(input: {
@@ -109,14 +98,11 @@ export async function saveInstitution(input: {
     return institution
   }
 
-  const client = requireSupabase()
-  const payload = { name: input.name, slug: input.slug, active: input.active }
-  const query = input.id
-    ? client.from("institutions").update(payload).eq("id", input.id)
-    : client.from("institutions").insert(payload)
-  const { data, error } = await query.select("*").single()
-  if (error) throw error
-  return data
+  const path = input.id ? `/institutions/${input.id}` : "/institutions"
+  return adminRequest<Institution>(path, {
+    method: input.id ? "PUT" : "POST",
+    body: JSON.stringify(input),
+  })
 }
 
 export async function deleteInstitution(id: string) {
@@ -131,37 +117,12 @@ export async function deleteInstitution(id: string) {
     )
     return
   }
-  const { error } = await requireSupabase()
-    .from("institutions")
-    .delete()
-    .eq("id", id)
-  if (error) throw error
+  await adminRequest<void>(`/institutions/${id}`, { method: "DELETE" })
 }
 
 export async function listCampaigns(): Promise<Campaign[]> {
   if (isAdminDemoMode) return demoCampaigns()
-  const { data, error } = await requireSupabase()
-    .from("campaigns")
-    .select(
-      "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, created_at, institutions(name)",
-    )
-    .order("created_at", { ascending: false })
-  if (error) throw error
-  return data.map((row) => {
-    const relation = row.institutions as unknown as { name: string } | null
-    return {
-      id: row.id,
-      institutionId: row.institution_id,
-      institutionName: relation?.name ?? "알 수 없는 기관",
-      title: row.title,
-      publicToken: row.public_token,
-      active: row.active,
-      startsAt: row.starts_at,
-      endsAt: row.ends_at,
-      requiredQuestionCount: row.required_question_count,
-      createdAt: row.created_at,
-    }
-  })
+  return adminRequest<Campaign[]>("/campaigns")
 }
 
 export async function saveCampaign(input: {
@@ -198,21 +159,11 @@ export async function saveCampaign(input: {
     return campaign
   }
 
-  const client = requireSupabase()
-  const payload = {
-    institution_id: input.institutionId,
-    title: input.title,
-    active: input.active,
-    starts_at: input.startsAt,
-    ends_at: input.endsAt,
-    required_question_count: input.requiredQuestionCount,
-  }
-  const query = input.id
-    ? client.from("campaigns").update(payload).eq("id", input.id)
-    : client.from("campaigns").insert(payload)
-  const { data, error } = await query.select("*").single()
-  if (error) throw error
-  return data
+  const path = input.id ? `/campaigns/${input.id}` : "/campaigns"
+  return adminRequest<Campaign>(path, {
+    method: input.id ? "PUT" : "POST",
+    body: JSON.stringify(input),
+  })
 }
 
 export async function deleteCampaign(id: string) {
@@ -223,46 +174,12 @@ export async function deleteCampaign(id: string) {
     )
     return
   }
-  const { error } = await requireSupabase()
-    .from("campaigns")
-    .delete()
-    .eq("id", id)
-  if (error) throw error
+  await adminRequest<void>(`/campaigns/${id}`, { method: "DELETE" })
 }
 
 export async function listAttempts(): Promise<AttemptSummary[]> {
   if (isAdminDemoMode) return demoAttempts()
-  const { data, error } = await requireSupabase()
-    .from("game_attempts")
-    .select(
-      "id, campaign_id, status, answered_count, verified_score, started_at, last_seen_at, completed_at, adjustment_reason, participants(nickname), campaigns(title, institutions(name))",
-    )
-    .order("started_at", { ascending: false })
-    .limit(500)
-  if (error) throw error
-  return data.map((row) => {
-    const participant = row.participants as unknown as {
-      nickname: string
-    } | null
-    const campaign = row.campaigns as unknown as {
-      title: string
-      institutions: { name: string } | null
-    } | null
-    return {
-      id: row.id,
-      campaignId: row.campaign_id,
-      campaignTitle: campaign?.title ?? "배포 종료",
-      institutionName: campaign?.institutions?.name ?? "알 수 없는 기관",
-      nickname: participant?.nickname ?? "알 수 없음",
-      status: row.status as AttemptStatus,
-      answeredCount: row.answered_count,
-      verifiedScore: row.verified_score,
-      startedAt: row.started_at,
-      lastSeenAt: row.last_seen_at,
-      completedAt: row.completed_at,
-      adjustmentReason: row.adjustment_reason,
-    }
-  })
+  return adminRequest<AttemptSummary[]>("/attempts")
 }
 
 export async function adjustAttempt(
@@ -325,12 +242,10 @@ export async function adjustAttempt(
     return
   }
 
-  const { error } = await requireSupabase().rpc("admin_adjust_attempt", {
-    p_attempt_id: attemptId,
-    p_action: action,
-    p_reason: reason,
+  await adminRequest<void>(`/attempts/${attemptId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ action, reason }),
   })
-  if (error) throw error
 }
 
 export async function getPublicCampaign(
@@ -370,6 +285,7 @@ export async function startOrResumeAttempt(
   publicToken: string,
   participantCode: string,
   nickname: string,
+  department: string,
 ): Promise<AttemptSession> {
   if (isAdminDemoMode) {
     const campaign = await getPublicCampaign(publicToken)
@@ -382,6 +298,7 @@ export async function startOrResumeAttempt(
       resumeToken: crypto.randomUUID(),
       status: "in_progress",
       nickname,
+      department,
       institutionName: campaign.institutionName,
       campaignTitle: campaign.campaignTitle,
       requiredQuestionCount: campaign.requiredQuestionCount,
@@ -400,6 +317,7 @@ export async function startOrResumeAttempt(
       campaignTitle: campaign.campaignTitle,
       institutionName: campaign.institutionName,
       nickname,
+      department,
       status: "in_progress",
       answeredCount: 0,
       verifiedScore: 0,
@@ -418,6 +336,7 @@ export async function startOrResumeAttempt(
       p_public_token: publicToken,
       p_participant_code: participantCode,
       p_nickname: nickname,
+      p_department: department,
     },
   )
   if (error) throw error
@@ -426,6 +345,7 @@ export async function startOrResumeAttempt(
     resumeToken: data.resume_token,
     status: data.status,
     nickname: data.nickname,
+    department: data.department,
     institutionName: data.institution_name,
     campaignTitle: data.campaign_title,
     requiredQuestionCount: data.required_question_count,

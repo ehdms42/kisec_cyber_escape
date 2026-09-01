@@ -28,7 +28,12 @@ const ATTEMPT_STATUS_LABEL: Record<AttemptStatus, string> = {
 }
 
 function toDateInput(value: string | null) {
-  return value ? new Date(value).toISOString().slice(0, 16) : ""
+  if (!value) return ""
+  const date = new Date(value)
+  const pad = (part: number) => String(part).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 function toIso(value: string) {
@@ -275,6 +280,7 @@ export default function InstitutionManagement() {
             <h3>응시 현황</h3>
           </div>
           <select
+            aria-label="응시 상태 필터"
             value={attemptFilter}
             onChange={(event) =>
               setAttemptFilter(event.target.value as "all" | AttemptStatus)
@@ -516,7 +522,7 @@ function CampaignForm({
         active,
         startsAt: toIso(startsAt),
         endsAt: toIso(endsAt),
-        requiredQuestionCount: 30,
+        requiredQuestionCount: campaign?.requiredQuestionCount ?? 30,
       })
     } catch (saveError) {
       setError(

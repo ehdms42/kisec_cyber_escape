@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { extractQuestionSet } from "../../admin/documentExtraction"
 import {
   registerQuestionDocument,
@@ -41,6 +41,50 @@ export default function DocumentImportPanel({
   const [processing, setProcessing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const dialogRef = useRef<HTMLElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== "Tab") return
+
+      const focusable = [
+        ...(dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ) ?? []),
+      ]
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!dialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault()
+        first.focus()
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus()
+    }
+  }, [onClose])
 
   const selectedCount = useMemo(
     () =>
@@ -212,6 +256,7 @@ export default function DocumentImportPanel({
   return (
     <div className="admin-modal admin-import-modal" role="presentation">
       <section
+        ref={dialogRef}
         className="admin-import-panel"
         role="dialog"
         aria-modal="true"
@@ -222,7 +267,12 @@ export default function DocumentImportPanel({
             <h2 id="document-import-title">문제 세트 가져오기</h2>
             <p>문제지 1부와 해답지 1부를 문제 번호로 맞춰 초안을 만듭니다.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="가져오기 닫기">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label="가져오기 닫기"
+          >
             ×
           </button>
         </header>

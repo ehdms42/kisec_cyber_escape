@@ -5,13 +5,32 @@ import { adminRequest } from "./serverApi"
 
 const DEMO_PRIZE_KEY = "cyber-quest-demo-prize-awards"
 
-function readDemoPrizes() {
+function isPrizeAward(value: unknown): value is PrizeAward {
+  if (!value || typeof value !== "object") return false
+  const award = value as Record<string, unknown>
+  return (
+    typeof award.id === "string" &&
+    typeof award.campaignId === "string" &&
+    typeof award.campaignTitle === "string" &&
+    typeof award.institutionName === "string" &&
+    typeof award.attemptId === "string" &&
+    typeof award.nickname === "string" &&
+    typeof award.department === "string" &&
+    ["selected", "notified", "delivered"].includes(String(award.status)) &&
+    typeof award.note === "string" &&
+    typeof award.selectedAt === "string" &&
+    (typeof award.deliveredAt === "string" || award.deliveredAt === null)
+  )
+}
+
+function readDemoPrizes(): PrizeAward[] {
   const stored = window.localStorage.getItem(DEMO_PRIZE_KEY)
-  if (!stored) return [] as PrizeAward[]
+  if (!stored) return []
   try {
-    return JSON.parse(stored) as PrizeAward[]
+    const parsed: unknown = JSON.parse(stored)
+    return Array.isArray(parsed) && parsed.every(isPrizeAward) ? parsed : []
   } catch {
-    return [] as PrizeAward[]
+    return []
   }
 }
 

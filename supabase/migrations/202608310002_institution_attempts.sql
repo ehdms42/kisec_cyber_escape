@@ -12,7 +12,7 @@ create table if not exists public.campaigns (
   id uuid primary key default gen_random_uuid(),
   institution_id uuid not null references public.institutions (id) on delete restrict,
   title text not null,
-  public_token text not null unique default encode(gen_random_bytes(12), 'hex'),
+  public_token text not null unique default encode(extensions.gen_random_bytes(12), 'hex'),
   active boolean not null default true,
   starts_at timestamptz,
   ends_at timestamptz,
@@ -162,7 +162,10 @@ begin
 
   select * into target_institution
   from public.institutions where id = target_campaign.institution_id;
-  normalized_hash := encode(digest(lower(trim(p_participant_code)), 'sha256'), 'hex');
+  normalized_hash := encode(
+    extensions.digest(lower(trim(p_participant_code)), 'sha256'),
+    'hex'
+  );
 
   insert into public.participants (campaign_id, nickname, identifier_hash)
   values (target_campaign.id, left(trim(p_nickname), 24), normalized_hash)
@@ -248,6 +251,11 @@ begin
   values (p_attempt_id, target_question.id, p_selected_answer, answer_correct)
   on conflict (attempt_id, question_id) do nothing;
   inserted := found;
+  if not inserted then
+    select is_correct into answer_correct
+    from public.attempt_answers
+    where attempt_id = p_attempt_id and question_id = target_question.id;
+  end if;
 
   update public.game_attempts a
   set answered_count = totals.answered_count,

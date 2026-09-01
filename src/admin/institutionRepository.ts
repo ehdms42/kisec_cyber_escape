@@ -1,5 +1,5 @@
 import { isAdminDemoMode, supabase } from "../lib/supabase"
-import { QUESTIONS } from "../data/questions"
+import { QUESTION_ANSWERS } from "../data/questionAnswers"
 import type {
   AttemptSession,
   AttemptSummary,
@@ -400,9 +400,7 @@ export async function recordAttemptAnswer(
     writeDemo(DEMO_ANSWER_KEY, answers)
     const answeredCount = Object.keys(attemptAnswers).length
     const verifiedScore = Object.entries(attemptAnswers).filter(
-      ([ordinal, answer]) =>
-        QUESTIONS.find((question) => question.id === Number(ordinal))
-          ?.answer === answer,
+      ([ordinal, answer]) => QUESTION_ANSWERS[Number(ordinal)] === answer,
     ).length
     writeDemo(
       DEMO_ATTEMPT_KEY,
@@ -417,15 +415,16 @@ export async function recordAttemptAnswer(
       answeredCount,
       verifiedScore,
     }))
-    return
+    return QUESTION_ANSWERS[questionOrdinal] === selectedAnswer
   }
-  const { error } = await requireSupabase().rpc("record_attempt_answer", {
+  const { data, error } = await requireSupabase().rpc("record_attempt_answer", {
     p_attempt_id: session.attemptId,
     p_resume_token: session.resumeToken,
     p_question_ordinal: questionOrdinal,
     p_selected_answer: selectedAnswer,
   })
   if (error) throw error
+  return Boolean(data?.correct)
 }
 
 export async function completeAttempt(

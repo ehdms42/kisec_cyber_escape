@@ -1,4 +1,5 @@
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -98,11 +99,21 @@ using (public.is_admin())
 with check (public.is_admin() and uploaded_by = auth.uid());
 
 drop policy if exists "published questions are readable" on public.questions;
-create policy "published questions are readable"
-on public.questions
-for select
-to anon, authenticated
-using (status = 'published' or public.is_admin());
+
+create or replace view public.published_questions
+as
+select ordinal,
+       category,
+       prompt,
+       options,
+       explanation,
+       source_reference
+from public.questions
+where status = 'published';
+
+revoke all on public.questions from anon, authenticated;
+revoke all on public.published_questions from public;
+grant select on public.published_questions to anon, authenticated;
 
 drop policy if exists "admins can insert questions" on public.questions;
 create policy "admins can insert questions"

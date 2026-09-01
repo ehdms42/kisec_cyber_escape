@@ -116,6 +116,8 @@ export function verifySession(secret, token) {
       typeof session.sub !== "string" ||
       typeof session.exp !== "number" ||
       typeof session.csrf !== "string" ||
+      typeof session.nonce !== "string" ||
+      !session.nonce ||
       session.exp <= Math.floor(Date.now() / 1000)
     ) {
       return null

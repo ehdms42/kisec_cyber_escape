@@ -23,7 +23,10 @@ interface GameScreenProps {
   onExit: () => void
   initialProgress?: Record<string, unknown> | null
   onProgress?: (progress: GameProgress) => void
-  onAnswer?: (questionOrdinal: number, selectedAnswer: number) => void
+  onAnswer?: (
+    questionOrdinal: number,
+    selectedAnswer: number,
+  ) => boolean | undefined | Promise<boolean | undefined>
 }
 
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
@@ -47,6 +50,8 @@ export default function GameScreen({
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(
     initial.selectedAnswer,
   )
+  const [answerResult, setAnswerResult] = useState<boolean | null>(null)
+  const [answerPending, setAnswerPending] = useState(false)
   const [score, setScore] = useState(initial.score)
   const [answeredCount, setAnsweredCount] = useState(initial.answeredCount)
   const [levelScoreStart, setLevelScoreStart] = useState(
@@ -65,6 +70,8 @@ export default function GameScreen({
   const [questionLoadError, setQuestionLoadError] = useState("")
   const [questionLoadKey, setQuestionLoadKey] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
+  const completionTimerRef = useRef<number | null>(null)
+  const answerRequestRef = useRef(0)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
@@ -103,6 +110,17 @@ export default function GameScreen({
       image.src = src
     })
   }, [])
+
+  useEffect(
+    () => () => {
+      answerRequestRef.current += 1
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -188,6 +206,7 @@ export default function GameScreen({
     setActiveId(puzzle.id)
     setQuestionStep(0)
     setSelectedAnswer(null)
+    setAnswerResult(null)
     setPhase("quiz")
   }
 
@@ -196,8 +215,27 @@ export default function GameScreen({
 
     setSelectedAnswer(index)
     setAnsweredCount((value) => value + 1)
-    if (index === question.answer) setScore((value) => value + 1)
-    onAnswer?.(question.id, index)
+    if (typeof question.answer === "number") {
+      const correct = index === question.answer
+      setAnswerResult(correct)
+      if (correct) setScore((value) => value + 1)
+      onAnswer?.(question.id, index)
+      return
+    }
+    if (!onAnswer) return
+
+    const request = ++answerRequestRef.current
+    setAnswerPending(true)
+    Promise.resolve(onAnswer(question.id, index))
+      .then((correct) => {
+        if (answerRequestRef.current !== request) return
+        if (typeof correct !== "boolean") return
+        setAnswerResult(correct)
+        if (correct) setScore((value) => value + 1)
+      })
+      .finally(() => {
+        if (answerRequestRef.current === request) setAnswerPending(false)
+      })
   }
 
   const goToNextQuestion = () => {
@@ -210,6 +248,7 @@ export default function GameScreen({
 
     setQuestionStep((value) => value + 1)
     setSelectedAnswer(null)
+    setAnswerResult(null)
   }
 
   const collectClue = () => {
@@ -237,12 +276,15 @@ export default function GameScreen({
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
       setIsUnlocking(true)
-      window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
+        if (completionTimerRef.current !== timer) return
+        completionTimerRef.current = null
         Promise.resolve(onFinish(score)).catch(() => {
           setIsUnlocking(false)
           setHasCodeError(true)
         })
       }, 850)
+      completionTimerRef.current = timer
       return
     }
 
@@ -261,11 +303,18 @@ export default function GameScreen({
     }
 
     if (phase === "keypad") {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+      setIsUnlocking(false)
       setPhase("room")
       return
     }
 
     if ((phase === "quiz" || phase === "reveal") && activePuzzle) {
+      answerRequestRef.current += 1
+      setAnswerPending(false)
       if (!completed.includes(activePuzzle.id)) {
         setScore(levelScoreStart)
         setAnsweredCount(levelAnsweredStart)
@@ -273,6 +322,7 @@ export default function GameScreen({
       }
       setQuestionStep(0)
       setSelectedAnswer(null)
+      setAnswerResult(null)
       setActiveId(null)
       setPhase("room")
       return
@@ -595,18 +645,29 @@ export default function GameScreen({
                 question={question}
                 parts={questionParts}
                 selectedAnswer={selectedAnswer}
+                answerResult={answerResult}
                 onSelectAnswer={chooseAnswer}
               />
               {answered && (
                 <div
                   className={`mission-feedback ${
-                    selectedAnswer === question.answer ? "correct" : "wrong"
+                    answerResult === null
+                      ? ""
+                      : answerResult
+                        ? "correct"
+                        : "wrong"
                   }`}
                 >
                   <strong>
-                    {selectedAnswer === question.answer ? "정답" : "오답"}
+                    {answerPending
+                      ? "답안 확인 중"
+                      : answerResult === null
+                        ? "답안 제출 완료"
+                        : answerResult
+                          ? "정답"
+                          : "오답"}
                   </strong>
-                  {selectedAnswer === question.answer && (
+                  {answerResult === true && (
                     <span className="answer-reward">
                       <i>
                         <img src="/header-star.svg" alt="" aria-hidden="true" />
@@ -624,7 +685,7 @@ export default function GameScreen({
               <button
                 className="room-primary"
                 onClick={goToNextQuestion}
-                disabled={!answered}
+                disabled={!answered || answerPending}
               >
                 {questionStep === activePuzzle.questions.length - 1
                   ? "장치 해제"

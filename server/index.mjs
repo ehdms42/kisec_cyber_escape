@@ -103,19 +103,25 @@ function requestOriginAllowed(req) {
   return !origin || allowedOrigins.has(origin)
 }
 
-function sessionFromRequest(req) {
+async function sessionFromRequest(req) {
   const token = parseCookies(req.get("cookie"))[cookieName]
-  return verifySession(sessionSecret, token)
+  const session = verifySession(sessionSecret, token)
+  if (!session || (await store.isSessionRevoked(session.nonce))) return null
+  return session
 }
 
-function requireAdmin(req, res, next) {
-  const session = sessionFromRequest(req)
-  if (!session) {
-    res.status(401).json({ message: "관리자 로그인이 필요합니다." })
-    return
+async function requireAdmin(req, res, next) {
+  try {
+    const session = await sessionFromRequest(req)
+    if (!session) {
+      res.status(401).json({ message: "관리자 로그인이 필요합니다." })
+      return
+    }
+    req.adminSession = session
+    next()
+  } catch (error) {
+    next(error)
   }
-  req.adminSession = session
-  next()
 }
 
 function requireMutationProtection(req, res, next) {
@@ -222,7 +228,12 @@ app.post(
   "/api/admin/logout",
   requireAdmin,
   requireMutationProtection,
-  (_req, res) => {
+  async (req, res) => {
+    await store.revokeAdminSession(
+      req.adminSession.nonce,
+      req.adminSession.exp,
+      req.adminSession.sub,
+    )
     clearSessionCookie(res)
     res.status(204).end()
   },
@@ -247,6 +258,15 @@ app.post(
   requireMutationProtection,
   async (req, res) => {
     res.status(201).json(await store.createQuestions(req.body?.questions))
+  },
+)
+
+app.post(
+  "/api/admin/questions/legacy-sync",
+  requireAdmin,
+  requireMutationProtection,
+  async (req, res) => {
+    res.status(201).json(await store.createLegacyQuestions(req.body?.questions))
   },
 )
 
@@ -389,7 +409,7 @@ app.patch(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    await store.adjustAttempt(req.params.id, req.body)
+    await store.adjustAttempt(req.params.id, req.body, req.adminSession.sub)
     res.status(204).end()
   },
 )
@@ -408,7 +428,9 @@ app.post(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    res.json(await store.selectCampaignWinner(req.params.id))
+    res.json(
+      await store.selectCampaignWinner(req.params.id, req.adminSession.sub),
+    )
   },
 )
 
@@ -417,7 +439,7 @@ app.patch(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    await store.updatePrizeAward(req.params.id, req.body)
+    await store.updatePrizeAward(req.params.id, req.body, req.adminSession.sub)
     res.status(204).end()
   },
 )

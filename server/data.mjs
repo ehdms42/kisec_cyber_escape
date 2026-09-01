@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { LEGACY_QUESTION_ANSWERS } from "./question-answers.mjs"
 
 const EMPTY_DATABASE = {
   questions: [],
@@ -9,6 +10,7 @@ const EMPTY_DATABASE = {
   campaigns: [],
   attempts: [],
   prizeAwards: [],
+  revokedSessions: [],
 }
 
 function now() {
@@ -167,6 +169,35 @@ function documentMimeType(filename, fallback) {
   return fallback || "application/octet-stream"
 }
 
+function hasPrefix(buffer, signature) {
+  return (
+    buffer.length >= signature.length &&
+    signature.every((byte, index) => buffer[index] === byte)
+  )
+}
+
+export function validateDocumentFile(file) {
+  const extension = path.extname(file?.originalname ?? "").toLowerCase()
+  const buffer = file?.buffer
+  const signatures = {
+    ".pdf": [[0x25, 0x50, 0x44, 0x46, 0x2d]],
+    ".hwp": [[0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]],
+    ".hwpx": [
+      [0x50, 0x4b, 0x03, 0x04],
+      [0x50, 0x4b, 0x05, 0x06],
+      [0x50, 0x4b, 0x07, 0x08],
+    ],
+  }
+  const valid =
+    Buffer.isBuffer(buffer) &&
+    signatures[extension]?.some((signature) => hasPrefix(buffer, signature))
+  if (!valid) {
+    const error = new Error("파일 확장자와 실제 문서 형식이 일치하지 않습니다.")
+    error.status = 415
+    throw error
+  }
+}
+
 function validateQuestion(input) {
   if (!Number.isInteger(input?.ordinal) || input.ordinal < 1)
     throw new Error("문제 번호를 확인해 주세요.")
@@ -246,6 +277,55 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
   }
 
   return {
+    async isSessionRevoked(nonce) {
+      requireBackend()
+      if (!supabase) {
+        const database = await readLocal()
+        const timestamp = now()
+        return database.revokedSessions.some(
+          (session) =>
+            session.nonce === nonce && session.expires_at > timestamp,
+        )
+      }
+      const { data, error } = await supabase
+        .from("admin_session_revocations")
+        .select("nonce")
+        .eq("nonce", nonce)
+        .gt("expires_at", now())
+        .maybeSingle()
+      if (error) throw error
+      return Boolean(data)
+    },
+
+    async revokeAdminSession(nonce, expiresAt, revokedBy) {
+      requireBackend()
+      const expiration = new Date(expiresAt * 1000).toISOString()
+      if (!supabase) {
+        await mutateLocal((database) => {
+          const timestamp = now()
+          database.revokedSessions = database.revokedSessions.filter(
+            (session) =>
+              session.expires_at > timestamp && session.nonce !== nonce,
+          )
+          database.revokedSessions.push({
+            nonce,
+            expires_at: expiration,
+            revoked_by: revokedBy,
+          })
+        })
+        return
+      }
+      const { error } = await supabase.from("admin_session_revocations").upsert(
+        {
+          nonce,
+          expires_at: expiration,
+          revoked_by: revokedBy,
+        },
+        { onConflict: "nonce" },
+      )
+      if (error) throw error
+    },
+
     async listQuestions() {
       requireBackend()
       if (!supabase) {
@@ -349,6 +429,21 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return data.map(toQuestion)
     },
 
+    async createLegacyQuestions(inputs) {
+      if (!Array.isArray(inputs)) {
+        throw new Error("동기화할 기존 문제를 확인해 주세요.")
+      }
+      return this.createQuestions(
+        inputs.map((input) => {
+          const correctAnswer = LEGACY_QUESTION_ANSWERS[input?.ordinal]
+          if (!Number.isInteger(correctAnswer)) {
+            throw new Error("기존 문제의 정답 번호를 찾을 수 없습니다.")
+          }
+          return { ...input, correctAnswer }
+        }),
+      )
+    },
+
     async deleteQuestion(id) {
       requireBackend()
       if (!supabase) {
@@ -365,6 +460,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
 
     async registerDocument(file, metadata) {
       requireBackend()
+      validateDocumentFile(file)
       const id = randomUUID()
       const safeName = sanitizeFilename(file.originalname)
       const storagePath = `server-admin/${id}/${safeName}`
@@ -686,7 +782,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return data.map(toAttempt)
     },
 
-    async adjustAttempt(id, input) {
+    async adjustAttempt(id, input, adminId) {
       requireBackend()
       const action = String(input?.action ?? "")
       const reason = String(input?.reason ?? "")
@@ -705,6 +801,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
             throw error
           }
           attempt.status = action === "void" ? "voided" : "in_progress"
+          attempt.adjusted_by = adminId
           attempt.adjustment_reason = reason
           if (action !== "void") attempt.completed_at = null
           if (action === "reset") {
@@ -719,6 +816,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       const { error } = await supabase.rpc("admin_adjust_attempt", {
         p_attempt_id: id,
         p_action: action,
+        p_admin_id: adminId,
         p_reason: reason,
       })
       if (error) throw error
@@ -792,7 +890,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return data.map(toPrizeAward)
     },
 
-    async selectCampaignWinner(campaignId) {
+    async selectCampaignWinner(campaignId, adminId) {
       requireBackend()
       if (!supabase) {
         const rankings = await this.listRankings(campaignId)
@@ -815,6 +913,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
             note: current?.note ?? "",
             selected_at: now(),
             delivered_at: null,
+            handled_by: adminId,
           }
           database.prizeAwards = [
             row,
@@ -826,6 +925,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         })
       }
       const { error } = await supabase.rpc("select_campaign_winner", {
+        p_admin_id: adminId,
         p_campaign_id: campaignId,
       })
       if (error) throw error
@@ -833,7 +933,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return awards.find((award) => award.campaignId === campaignId) ?? null
     },
 
-    async updatePrizeAward(campaignId, input) {
+    async updatePrizeAward(campaignId, input, adminId) {
       requireBackend()
       const status = String(input?.status ?? "")
       const note = String(input?.note ?? "")
@@ -855,10 +955,12 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
           award.status = status
           award.note = note
           award.delivered_at = status === "delivered" ? now() : null
+          award.handled_by = adminId
         })
         return
       }
       const { error } = await supabase.rpc("update_prize_award", {
+        p_admin_id: adminId,
         p_campaign_id: campaignId,
         p_status: status,
         p_note: note,

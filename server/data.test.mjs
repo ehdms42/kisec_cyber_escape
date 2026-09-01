@@ -50,6 +50,19 @@ test("로컬 관리자 저장소에서 기관과 배포를 서버가 관리한�
   })
 })
 
+test("로그아웃한 관리자 세션 nonce를 만료 시각까지 거부한다", async () => {
+  await withLocalStore(async (store) => {
+    const nonce = "revoked-session-nonce"
+    await store.revokeAdminSession(
+      nonce,
+      Math.floor(Date.now() / 1000) + 60,
+      "kisec-admin",
+    )
+    assert.equal(await store.isSessionRevoked(nonce), true)
+    assert.equal(await store.isSessionRevoked("another-session"), false)
+  })
+})
+
 test("문제 일괄 등록은 번호 충돌 시 일부만 저장하지 않는다", async () => {
   await withLocalStore(async (store) => {
     const question = (ordinal) => ({
@@ -77,6 +90,26 @@ test("문제 일괄 등록은 번호 충돌 시 일부만 저장하지 않는다
   })
 })
 
+test("기존 문제 동기화의 정답은 서버 전용 키에서 결합한다", async () => {
+  await withLocalStore(async (store) => {
+    const [created] = await store.createLegacyQuestions([
+      {
+        ordinal: 1,
+        category: "보안",
+        prompt: "기존 문제",
+        options: ["보기 1", "보기 2", "보기 3", "보기 4"],
+        explanation: "",
+        sourceReference: "",
+        status: "published",
+        sourceDocumentId: null,
+        answerDocumentId: null,
+      },
+    ])
+
+    assert.equal(created.correctAnswer, 3)
+  })
+})
+
 test("문제지와 해답지를 한 세트로 구분해 저장한다", async () => {
   await withLocalStore(async (store) => {
     const pairId = "0198fb4a-94ab-7452-85de-dca777d333e1"
@@ -92,7 +125,7 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
       {
         originalname: "answers.hwpx",
         mimetype: "application/zip",
-        buffer: Buffer.from("PK-test"),
+        buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x74, 0x65, 0x73, 0x74]),
       },
       { role: "answer", pairId },
     )
@@ -101,5 +134,24 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
     assert.equal(answer.documentRole, "answer")
     assert.equal(question.pairId, answer.pairId)
     assert.equal(answer.mimeType, "application/vnd.hancom.hwpx")
+  })
+})
+
+test("문서 확장자와 매직 바이트가 다르면 저장 전에 거부한다", async () => {
+  await withLocalStore(async (store) => {
+    await assert.rejects(
+      store.registerDocument(
+        {
+          originalname: "not-really.pdf",
+          mimetype: "application/pdf",
+          buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+        },
+        {
+          role: "question",
+          pairId: "0198fb4a-94ab-7452-85de-dca777d333e1",
+        },
+      ),
+      /실제 문서 형식/,
+    )
   })
 })

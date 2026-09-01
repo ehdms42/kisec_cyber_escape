@@ -5,6 +5,7 @@ interface QuestionPanelProps {
   question: Question
   parts: QuestionParts
   selectedAnswer: number | null
+  answerResult: boolean | null
   onSelectAnswer: (index: number) => void
 }
 
@@ -15,6 +16,7 @@ export default function QuestionPanel({
   question,
   parts,
   selectedAnswer,
+  answerResult,
   onSelectAnswer,
 }: QuestionPanelProps) {
   const answered = selectedAnswer !== null
@@ -48,8 +50,8 @@ export default function QuestionPanel({
 
       <div className="answer-list">
         {question.options.map((option, index) => {
-          const isCorrect = answered && index === question.answer
-          const isWrong = answered && index === selectedAnswer && !isCorrect
+          const isCorrect = index === selectedAnswer && answerResult === true
+          const isWrong = index === selectedAnswer && answerResult === false
           const state = isCorrect
             ? "correct"
             : isWrong

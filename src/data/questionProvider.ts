@@ -1,13 +1,12 @@
 import { QUIZ_LENGTH } from "../game/config"
 import { isSupabaseConfigured, supabase } from "../lib/supabase"
-import { QUESTIONS, type Question } from "./questions"
+import type { Question } from "./questions"
 
 interface PublishedQuestionRow {
   ordinal: number
   category: string
   prompt: string
   options: unknown
-  correct_answer: number
   explanation: string
   source_reference: string
 }
@@ -19,29 +18,34 @@ function toQuestion(row: PublishedQuestionRow): Question {
   ) {
     throw new Error(`${row.ordinal}번 문제의 보기 형식이 올바르지 않습니다.`)
   }
-  if (row.correct_answer < 0 || row.correct_answer >= row.options.length) {
-    throw new Error(`${row.ordinal}번 문제의 정답 번호가 올바르지 않습니다.`)
-  }
   return {
     id: row.ordinal,
     category: row.category,
     question: row.prompt,
     options: row.options,
-    answer: row.correct_answer,
     explanation: row.explanation,
     reference: row.source_reference || undefined,
   }
 }
 
 export async function loadGameQuestions(): Promise<Question[]> {
-  if (!isSupabaseConfigured || !supabase) return QUESTIONS.slice(0, QUIZ_LENGTH)
+  if (!isSupabaseConfigured || !supabase) {
+    if (!import.meta.env.DEV) {
+      throw new Error("운영 환경의 공개 문제 저장소가 설정되지 않았습니다.")
+    }
+    const [{ QUESTIONS }, { QUESTION_ANSWERS }] = await Promise.all([
+      import("./questions"),
+      import("./questionAnswers"),
+    ])
+    return QUESTIONS.slice(0, QUIZ_LENGTH).map((question) => ({
+      ...question,
+      answer: QUESTION_ANSWERS[question.id],
+    }))
+  }
 
   const { data, error } = await supabase
-    .from("questions")
-    .select(
-      "ordinal, category, prompt, options, correct_answer, explanation, source_reference",
-    )
-    .eq("status", "published")
+    .from("published_questions")
+    .select("ordinal, category, prompt, options, explanation, source_reference")
     .order("ordinal", { ascending: true })
     .limit(QUIZ_LENGTH)
 

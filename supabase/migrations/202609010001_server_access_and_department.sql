@@ -5,10 +5,33 @@ alter table public.participants
   add column if not exists department text not null default '';
 
 alter table public.attempt_adjustments
+  drop constraint if exists attempt_adjustments_admin_id_fkey;
+alter table public.attempt_adjustments
+  alter column admin_id type text using admin_id::text,
   alter column admin_id drop not null;
 
+alter table public.game_attempts
+  drop constraint if exists game_attempts_adjusted_by_fkey;
+alter table public.game_attempts
+  alter column adjusted_by type text using adjusted_by::text;
+
 alter table public.prize_awards
+  drop constraint if exists prize_awards_handled_by_fkey;
+alter table public.prize_awards
+  alter column handled_by type text using handled_by::text,
   alter column handled_by drop not null;
+
+create table if not exists public.admin_session_revocations (
+  nonce text primary key,
+  expires_at timestamptz not null,
+  revoked_by text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_session_revocations enable row level security;
+revoke all on public.admin_session_revocations from public, anon, authenticated;
+grant select, insert, update, delete on public.admin_session_revocations
+  to service_role;
 
 drop policy if exists "admins manage institutions" on public.institutions;
 drop policy if exists "admins manage campaigns" on public.campaigns;
@@ -73,7 +96,7 @@ begin
   from public.institutions where id = target_campaign.institution_id;
 
   normalized_hash := encode(
-    digest(lower(trim(p_participant_code)), 'sha256'),
+    extensions.digest(lower(trim(p_participant_code)), 'sha256'),
     'hex'
   );
 
@@ -124,10 +147,15 @@ revoke all on function public.start_or_resume_attempt(text, text, text, text)
 grant execute on function public.start_or_resume_attempt(text, text, text, text)
   to anon, authenticated;
 
-create or replace function public.admin_adjust_attempt(
+revoke all on function public.admin_adjust_attempt(uuid, text, text)
+  from public, anon, authenticated;
+drop function public.admin_adjust_attempt(uuid, text, text);
+
+create function public.admin_adjust_attempt(
   p_attempt_id uuid,
   p_action text,
-  p_reason text
+  p_reason text,
+  p_admin_id text
 )
 returns void
 language plpgsql
@@ -159,7 +187,7 @@ begin
     (attempt_id, admin_id, action, reason, previous_status)
   values (
     target_attempt.id,
-    null,
+    p_admin_id,
     p_action,
     trim(p_reason),
     target_attempt.status
@@ -176,7 +204,7 @@ begin
         last_seen_at = now(),
         completed_at = null,
         resume_token = gen_random_uuid(),
-        adjusted_by = null,
+        adjusted_by = p_admin_id,
         adjustment_reason = trim(p_reason)
     where id = p_attempt_id;
   elsif p_action = 'resume' then
@@ -184,22 +212,22 @@ begin
     set status = 'in_progress',
         completed_at = null,
         last_seen_at = now(),
-        adjusted_by = null,
+        adjusted_by = p_admin_id,
         adjustment_reason = trim(p_reason)
     where id = p_attempt_id;
   else
     update public.game_attempts
     set status = 'voided',
-        adjusted_by = null,
+        adjusted_by = p_admin_id,
         adjustment_reason = trim(p_reason)
     where id = p_attempt_id;
   end if;
 end;
 $$;
 
-revoke all on function public.admin_adjust_attempt(uuid, text, text)
+revoke all on function public.admin_adjust_attempt(uuid, text, text, text)
   from public, anon, authenticated;
-grant execute on function public.admin_adjust_attempt(uuid, text, text)
+grant execute on function public.admin_adjust_attempt(uuid, text, text, text)
   to service_role;
 
 drop function if exists public.admin_get_rankings(uuid);
@@ -283,7 +311,14 @@ revoke all on function public.admin_get_rankings(uuid)
   from public, anon, authenticated;
 grant execute on function public.admin_get_rankings(uuid) to service_role;
 
-create or replace function public.select_campaign_winner(p_campaign_id uuid)
+revoke all on function public.select_campaign_winner(uuid)
+  from public, anon, authenticated;
+drop function public.select_campaign_winner(uuid);
+
+create function public.select_campaign_winner(
+  p_campaign_id uuid,
+  p_admin_id text
+)
 returns uuid
 language plpgsql
 security definer
@@ -305,21 +340,26 @@ begin
 
   insert into public.prize_awards
     (campaign_id, attempt_id, status, selected_at, delivered_at, handled_by)
-  values (p_campaign_id, winner_attempt_id, 'selected', now(), null, null)
+  values (p_campaign_id, winner_attempt_id, 'selected', now(), null, p_admin_id)
   on conflict (campaign_id) do update
   set attempt_id = excluded.attempt_id,
       status = 'selected',
       selected_at = now(),
       delivered_at = null,
-      handled_by = null
+      handled_by = p_admin_id
   returning id into award_id;
   return award_id;
 end;
 $$;
 
-create or replace function public.update_prize_award(
+revoke all on function public.update_prize_award(uuid, text, text)
+  from public, anon, authenticated;
+drop function public.update_prize_award(uuid, text, text);
+
+create function public.update_prize_award(
   p_campaign_id uuid,
   p_status text,
+  p_admin_id text,
   p_note text default ''
 )
 returns void
@@ -338,7 +378,7 @@ begin
   set status = p_status,
       note = coalesce(p_note, ''),
       delivered_at = case when p_status = 'delivered' then now() else null end,
-      handled_by = null
+      handled_by = p_admin_id
   where campaign_id = p_campaign_id;
   if not found then
     raise exception '먼저 1위를 선정해 주세요.';
@@ -346,10 +386,11 @@ begin
 end;
 $$;
 
-revoke all on function public.select_campaign_winner(uuid)
+revoke all on function public.select_campaign_winner(uuid, text)
   from public, anon, authenticated;
-revoke all on function public.update_prize_award(uuid, text, text)
+revoke all on function public.update_prize_award(uuid, text, text, text)
   from public, anon, authenticated;
-grant execute on function public.select_campaign_winner(uuid) to service_role;
-grant execute on function public.update_prize_award(uuid, text, text)
+grant execute on function public.select_campaign_winner(uuid, text)
+  to service_role;
+grant execute on function public.update_prize_award(uuid, text, text, text)
   to service_role;

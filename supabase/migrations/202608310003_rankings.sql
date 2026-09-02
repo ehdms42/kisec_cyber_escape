@@ -1,5 +1,17 @@
-alter table public.game_attempts
-  add constraint game_attempts_id_campaign_unique unique (id, campaign_id);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.game_attempts'::regclass
+      and conname = 'game_attempts_id_campaign_unique'
+  ) then
+    alter table public.game_attempts
+      add constraint game_attempts_id_campaign_unique
+      unique (id, campaign_id);
+  end if;
+end;
+$$;
 
 create table if not exists public.prize_awards (
   id uuid primary key default gen_random_uuid(),
@@ -104,7 +116,12 @@ as $$
   select r.rank, r.nickname, r.verified_score, r.elapsed_seconds, r.completed_at
   from public.campaign_rankings r
   join public.campaigns c on c.id = r.campaign_id
+  join public.institutions i on i.id = c.institution_id
   where c.public_token = trim(p_public_token)
+    and c.active
+    and i.active
+    and (c.starts_at is null or c.starts_at <= now())
+    and (c.ends_at is null or c.ends_at > now())
   order by r.rank
   limit least(greatest(coalesce(p_limit, 20), 1), 100);
 $$;

@@ -7,7 +7,6 @@ interface PublishedQuestionRow {
   category: string
   prompt: string
   options: unknown
-  correct_answer: number
   explanation: string
   source_reference: string
 }
@@ -19,31 +18,26 @@ function toQuestion(row: PublishedQuestionRow): Question {
   ) {
     throw new Error(`${row.ordinal}번 문제의 보기 형식이 올바르지 않습니다.`)
   }
-  if (row.correct_answer < 0 || row.correct_answer >= row.options.length) {
-    throw new Error(`${row.ordinal}번 문제의 정답 번호가 올바르지 않습니다.`)
-  }
   return {
     id: row.ordinal,
     category: row.category,
     question: row.prompt,
     options: row.options,
-    answer: row.correct_answer,
     explanation: row.explanation,
     reference: row.source_reference || undefined,
   }
 }
 
-export async function loadGameQuestions(): Promise<Question[]> {
-  if (!isSupabaseConfigured || !supabase) return QUESTIONS.slice(0, QUIZ_LENGTH)
+export async function loadGameQuestions(
+  usePublishedQuestions = false,
+): Promise<Question[]> {
+  if (!usePublishedQuestions || !isSupabaseConfigured || !supabase) {
+    return QUESTIONS.slice(0, QUIZ_LENGTH)
+  }
 
-  const { data, error } = await supabase
-    .from("questions")
-    .select(
-      "ordinal, category, prompt, options, correct_answer, explanation, source_reference",
-    )
-    .eq("status", "published")
-    .order("ordinal", { ascending: true })
-    .limit(QUIZ_LENGTH)
+  const { data, error } = await supabase.rpc("get_published_questions", {
+    p_limit: QUIZ_LENGTH,
+  })
 
   if (error)
     throw new Error(`공개 문제를 불러오지 못했습니다: ${error.message}`)

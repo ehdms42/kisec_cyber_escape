@@ -24,6 +24,7 @@ test("서명된 세션과 CSRF 토큰만 허용한다", () => {
   const session = verifySession(SECRET, created.token)
 
   assert.equal(session?.sub, "kisec-admin")
+  assert.equal(typeof session?.nonce, "string")
   assert.equal(verifyCsrf(session, created.csrfToken), true)
   assert.equal(verifyCsrf(session, "tampered"), false)
   assert.equal(verifySession(SECRET, `${created.token}tampered`), null)

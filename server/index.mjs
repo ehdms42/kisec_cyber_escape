@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import express from "express"
 import helmet from "helmet"
 import multer from "multer"
-import { createDataStore } from "./data.mjs"
+import { createDataStore, validateDocumentFile } from "./data.mjs"
 import {
   createSession,
   normalizeAdminId,
@@ -108,9 +108,9 @@ function sessionFromRequest(req) {
   return verifySession(sessionSecret, token)
 }
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   const session = sessionFromRequest(req)
-  if (!session) {
+  if (!session || (await store.isAdminSessionRevoked(session.nonce))) {
     res.status(401).json({ message: "관리자 로그인이 필요합니다." })
     return
   }
@@ -222,7 +222,11 @@ app.post(
   "/api/admin/logout",
   requireAdmin,
   requireMutationProtection,
-  (_req, res) => {
+  async (req, res) => {
+    await store.revokeAdminSession(
+      req.adminSession.nonce,
+      new Date(req.adminSession.exp * 1000).toISOString(),
+    )
     clearSessionCookie(res)
     res.status(204).end()
   },
@@ -279,13 +283,7 @@ app.post(
       res.status(400).json({ message: "업로드할 파일이 없습니다." })
       return
     }
-    const extension = path.extname(req.file.originalname).toLowerCase()
-    if (![".pdf", ".hwp", ".hwpx"].includes(extension)) {
-      res
-        .status(415)
-        .json({ message: "PDF, HWP, HWPX 파일만 업로드할 수 있습니다." })
-      return
-    }
+    validateDocumentFile(req.file)
     const role = String(req.body?.role ?? "")
     const pairId = String(req.body?.pairId ?? "")
     if (!["question", "answer"].includes(role)) {
@@ -389,7 +387,7 @@ app.patch(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    await store.adjustAttempt(req.params.id, req.body)
+    await store.adjustAttempt(req.params.id, req.body, req.adminSession.sub)
     res.status(204).end()
   },
 )
@@ -408,7 +406,9 @@ app.post(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    res.json(await store.selectCampaignWinner(req.params.id))
+    res.json(
+      await store.selectCampaignWinner(req.params.id, req.adminSession.sub),
+    )
   },
 )
 
@@ -417,7 +417,7 @@ app.patch(
   requireAdmin,
   requireMutationProtection,
   async (req, res) => {
-    await store.updatePrizeAward(req.params.id, req.body)
+    await store.updatePrizeAward(req.params.id, req.body, req.adminSession.sub)
     res.status(204).end()
   },
 )

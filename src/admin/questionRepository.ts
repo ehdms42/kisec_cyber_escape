@@ -1,4 +1,5 @@
 import { QUESTIONS } from "../data/questions"
+import { fallbackAnswerFor } from "../data/questionAnswers"
 import { adminRequest } from "./serverApi"
 import type {
   AdminQuestion,
@@ -41,7 +42,7 @@ export async function importLegacyQuestions() {
     category: question.category,
     prompt: question.question,
     options: question.options,
-    correctAnswer: question.answer,
+    correctAnswer: fallbackAnswerFor(question.id),
     explanation: question.explanation,
     sourceReference: question.reference ?? "",
     status: "published",

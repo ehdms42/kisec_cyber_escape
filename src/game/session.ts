@@ -6,6 +6,7 @@ export interface GameProgress {
   activeId: PuzzleId | null
   questionStep: number
   selectedAnswer: number | null
+  answerCorrect: boolean | null
   score: number
   answeredCount: number
   levelScoreStart: number
@@ -21,6 +22,7 @@ export const EMPTY_GAME_PROGRESS: GameProgress = {
   activeId: null,
   questionStep: 0,
   selectedAnswer: null,
+  answerCorrect: null,
   score: 0,
   answeredCount: 0,
   levelScoreStart: 0,
@@ -71,6 +73,8 @@ export function normalizeGameProgress(
         : typeof value.selectedAnswer === "number"
           ? integer(value.selectedAnswer)
           : null,
+    answerCorrect:
+      typeof value.answerCorrect === "boolean" ? value.answerCorrect : null,
     score: integer(value.score),
     answeredCount: integer(value.answeredCount),
     levelScoreStart: integer(value.levelScoreStart),

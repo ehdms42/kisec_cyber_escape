@@ -30,7 +30,9 @@ function formatDuration(totalSeconds: number) {
 }
 
 function csvValue(value: string | number) {
-  return `"${String(value).replace(/"/g, '""')}"`
+  const text = String(value)
+  const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text
+  return `"${safeText.replace(/"/g, '""')}"`
 }
 
 export default function RankingManagement() {
@@ -280,6 +282,7 @@ export default function RankingManagement() {
                 </button>
               )}
               <select
+                aria-label="상품 지급 상태"
                 value={award.status}
                 disabled={saving}
                 onChange={(event) =>

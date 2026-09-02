@@ -1,5 +1,5 @@
 import { isAdminDemoMode, supabase } from "../lib/supabase"
-import { QUESTIONS } from "../data/questions"
+import { isFallbackAnswerCorrect } from "../data/questionAnswers"
 import type {
   AttemptSession,
   AttemptSummary,
@@ -18,6 +18,11 @@ const DEMO_SESSION_KEY = `${DEMO_ATTEMPT_KEY}-sessions`
 interface CompleteAttemptResult {
   verified_score: number
   answered_count: number
+}
+
+interface AnswerResult {
+  accepted: boolean
+  correct: boolean
 }
 
 function requireSupabase() {
@@ -386,23 +391,28 @@ export async function recordAttemptAnswer(
   session: AttemptSession,
   questionOrdinal: number,
   selectedAnswer: number,
-) {
-  if (!session.resumeToken || session.status !== "in_progress") return
+): Promise<boolean> {
+  if (!session.resumeToken || session.status !== "in_progress") {
+    throw new Error("진행 중인 응시 기록을 찾을 수 없습니다.")
+  }
   if (isAdminDemoMode) {
     const answers = readDemo<Record<string, Record<string, number>>>(
       DEMO_ANSWER_KEY,
       {},
     )
     const attemptAnswers = answers[session.attemptId] ?? {}
-    if (String(questionOrdinal) in attemptAnswers) return
+    if (String(questionOrdinal) in attemptAnswers) {
+      return isFallbackAnswerCorrect(
+        questionOrdinal,
+        attemptAnswers[String(questionOrdinal)],
+      )
+    }
     attemptAnswers[String(questionOrdinal)] = selectedAnswer
     answers[session.attemptId] = attemptAnswers
     writeDemo(DEMO_ANSWER_KEY, answers)
     const answeredCount = Object.keys(attemptAnswers).length
     const verifiedScore = Object.entries(attemptAnswers).filter(
-      ([ordinal, answer]) =>
-        QUESTIONS.find((question) => question.id === Number(ordinal))
-          ?.answer === answer,
+      ([ordinal, answer]) => isFallbackAnswerCorrect(Number(ordinal), answer),
     ).length
     writeDemo(
       DEMO_ATTEMPT_KEY,
@@ -417,15 +427,16 @@ export async function recordAttemptAnswer(
       answeredCount,
       verifiedScore,
     }))
-    return
+    return isFallbackAnswerCorrect(questionOrdinal, selectedAnswer)
   }
-  const { error } = await requireSupabase().rpc("record_attempt_answer", {
+  const { data, error } = await requireSupabase().rpc("record_attempt_answer", {
     p_attempt_id: session.attemptId,
     p_resume_token: session.resumeToken,
     p_question_ordinal: questionOrdinal,
     p_selected_answer: selectedAnswer,
   })
   if (error) throw error
+  return Boolean((data as AnswerResult | null)?.correct)
 }
 
 export async function completeAttempt(

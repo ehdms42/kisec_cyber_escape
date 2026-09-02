@@ -191,23 +191,25 @@ export default function App() {
   )
 
   const persistAnswer = useCallback(
-    (questionOrdinal: number, selectedAnswer: number) => {
-      if (!attemptSession) return
-      loadAttemptApi()
-        .then((api) =>
-          api.recordAttemptAnswer(
-            attemptSession,
-            questionOrdinal,
-            selectedAnswer,
-          ),
+    async (questionOrdinal: number, selectedAnswer: number) => {
+      if (!attemptSession) {
+        throw new Error("응시 정보를 찾을 수 없습니다.")
+      }
+      try {
+        const api = await loadAttemptApi()
+        return await api.recordAttemptAnswer(
+          attemptSession,
+          questionOrdinal,
+          selectedAnswer,
         )
-        .catch((error) => {
-          setSessionWarning(
-            error instanceof Error
-              ? `답안 검증 실패: ${error.message}`
-              : "답안을 서버에 기록하지 못했습니다.",
-          )
-        })
+      } catch (error) {
+        setSessionWarning(
+          error instanceof Error
+            ? `답안 검증 실패: ${error.message}`
+            : "답안을 서버에 기록하지 못했습니다.",
+        )
+        throw error
+      }
     },
     [attemptSession],
   )

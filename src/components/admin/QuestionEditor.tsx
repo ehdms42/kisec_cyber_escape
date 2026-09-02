@@ -92,10 +92,14 @@ export default function QuestionEditor({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const options = value.options.map((option) => option.trim()).filter(Boolean)
+    const options = value.options.map((option) => option.trim())
 
     if (!value.category.trim() || !value.prompt.trim()) {
       setError("분류와 문제 내용을 입력해 주세요.")
+      return
+    }
+    if (options.some((option) => !option)) {
+      setError("빈 보기가 있습니다. 모든 보기를 입력해 주세요.")
       return
     }
     if (options.length < 2) {

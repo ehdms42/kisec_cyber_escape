@@ -23,7 +23,10 @@ interface GameScreenProps {
   onExit: () => void
   initialProgress?: Record<string, unknown> | null
   onProgress?: (progress: GameProgress) => void
-  onAnswer?: (questionOrdinal: number, selectedAnswer: number) => void
+  onAnswer?: (
+    questionOrdinal: number,
+    selectedAnswer: number,
+  ) => boolean | Promise<boolean>
 }
 
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
@@ -47,6 +50,11 @@ export default function GameScreen({
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(
     initial.selectedAnswer,
   )
+  const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(
+    initial.answerCorrect,
+  )
+  const [answerPending, setAnswerPending] = useState(false)
+  const [answerSubmitError, setAnswerSubmitError] = useState("")
   const [score, setScore] = useState(initial.score)
   const [answeredCount, setAnsweredCount] = useState(initial.answeredCount)
   const [levelScoreStart, setLevelScoreStart] = useState(
@@ -65,6 +73,7 @@ export default function GameScreen({
   const [questionLoadError, setQuestionLoadError] = useState("")
   const [questionLoadKey, setQuestionLoadKey] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
+  const completionTimerRef = useRef<number | null>(null)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
@@ -104,11 +113,21 @@ export default function GameScreen({
     })
   }, [])
 
+  useEffect(
+    () => () => {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+    },
+    [],
+  )
+
   useEffect(() => {
     let cancelled = false
     setQuestionLoadError("")
     import("../data/questionProvider")
-      .then(({ loadGameQuestions }) => loadGameQuestions())
+      .then(({ loadGameQuestions }) => loadGameQuestions(Boolean(onAnswer)))
       .then((questions) => {
         if (!cancelled) setGameQuestions(questions)
       })
@@ -125,7 +144,7 @@ export default function GameScreen({
     return () => {
       cancelled = true
     }
-  }, [questionLoadKey])
+  }, [onAnswer, questionLoadKey])
 
   useEffect(() => {
     if (phase !== "room") return
@@ -146,6 +165,7 @@ export default function GameScreen({
       activeId,
       questionStep,
       selectedAnswer,
+      answerCorrect,
       score,
       answeredCount,
       levelScoreStart,
@@ -167,6 +187,7 @@ export default function GameScreen({
     questionStep,
     score,
     selectedAnswer,
+    answerCorrect,
     selectedHotspot,
   ])
 
@@ -188,16 +209,36 @@ export default function GameScreen({
     setActiveId(puzzle.id)
     setQuestionStep(0)
     setSelectedAnswer(null)
+    setAnswerCorrect(null)
+    setAnswerSubmitError("")
     setPhase("quiz")
   }
 
-  const chooseAnswer = (index: number) => {
-    if (answered || !question) return
+  const chooseAnswer = async (index: number) => {
+    if (answered || answerPending || !question) return
 
-    setSelectedAnswer(index)
-    setAnsweredCount((value) => value + 1)
-    if (index === question.answer) setScore((value) => value + 1)
-    onAnswer?.(question.id, index)
+    setAnswerPending(true)
+    setAnswerSubmitError("")
+    try {
+      const correct = onAnswer
+        ? await onAnswer(question.id, index)
+        : (await import("../data/questionAnswers")).isFallbackAnswerCorrect(
+            question.id,
+            index,
+          )
+      setSelectedAnswer(index)
+      setAnswerCorrect(correct)
+      setAnsweredCount((value) => value + 1)
+      if (correct) setScore((value) => value + 1)
+    } catch (error) {
+      setAnswerSubmitError(
+        error instanceof Error
+          ? error.message
+          : "답안을 확인하지 못했습니다. 다시 선택해 주세요.",
+      )
+    } finally {
+      setAnswerPending(false)
+    }
   }
 
   const goToNextQuestion = () => {
@@ -210,6 +251,8 @@ export default function GameScreen({
 
     setQuestionStep((value) => value + 1)
     setSelectedAnswer(null)
+    setAnswerCorrect(null)
+    setAnswerSubmitError("")
   }
 
   const collectClue = () => {
@@ -237,7 +280,8 @@ export default function GameScreen({
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
       setIsUnlocking(true)
-      window.setTimeout(() => {
+      completionTimerRef.current = window.setTimeout(() => {
+        completionTimerRef.current = null
         Promise.resolve(onFinish(score)).catch(() => {
           setIsUnlocking(false)
           setHasCodeError(true)
@@ -261,6 +305,11 @@ export default function GameScreen({
     }
 
     if (phase === "keypad") {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+      setIsUnlocking(false)
       setPhase("room")
       return
     }
@@ -273,6 +322,8 @@ export default function GameScreen({
       }
       setQuestionStep(0)
       setSelectedAnswer(null)
+      setAnswerCorrect(null)
+      setAnswerSubmitError("")
       setActiveId(null)
       setPhase("room")
       return
@@ -595,18 +646,23 @@ export default function GameScreen({
                 question={question}
                 parts={questionParts}
                 selectedAnswer={selectedAnswer}
+                answerCorrect={answerCorrect}
+                answerPending={answerPending}
                 onSelectAnswer={chooseAnswer}
               />
+              {answerSubmitError && (
+                <p className="admin-form-error" role="alert">
+                  {answerSubmitError}
+                </p>
+              )}
               {answered && (
                 <div
                   className={`mission-feedback ${
-                    selectedAnswer === question.answer ? "correct" : "wrong"
+                    answerCorrect ? "correct" : "wrong"
                   }`}
                 >
-                  <strong>
-                    {selectedAnswer === question.answer ? "정답" : "오답"}
-                  </strong>
-                  {selectedAnswer === question.answer && (
+                  <strong>{answerCorrect ? "정답" : "오답"}</strong>
+                  {answerCorrect && (
                     <span className="answer-reward">
                       <i>
                         <img src="/header-star.svg" alt="" aria-hidden="true" />

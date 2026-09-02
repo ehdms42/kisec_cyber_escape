@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { createDataStore } from "./data.mjs"
+import { createDataStore, validateDocumentFile } from "./data.mjs"
 
 async function withLocalStore(callback) {
   const directory = await mkdtemp(path.join(tmpdir(), "kisec-admin-data-"))
@@ -92,7 +92,7 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
       {
         originalname: "answers.hwpx",
         mimetype: "application/zip",
-        buffer: Buffer.from("PK-test"),
+        buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
       },
       { role: "answer", pairId },
     )
@@ -101,5 +101,36 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
     assert.equal(answer.documentRole, "answer")
     assert.equal(question.pairId, answer.pairId)
     assert.equal(answer.mimeType, "application/vnd.hancom.hwpx")
+  })
+})
+
+test("문서 확장자와 실제 파일 형식이 다르면 저장 전에 거부한다", () => {
+  assert.throws(
+    () =>
+      validateDocumentFile({
+        originalname: "renamed.pdf",
+        buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      }),
+    /파일 내용과 확장자가 일치하지 않습니다/,
+  )
+  assert.doesNotThrow(() =>
+    validateDocumentFile({
+      originalname: "legacy.hwp",
+      buffer: Buffer.from([
+        0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00,
+      ]),
+    }),
+  )
+})
+
+test("로그아웃한 관리자 세션 nonce는 만료 전까지 폐기 상태를 유지한다", async () => {
+  await withLocalStore(async (store) => {
+    const nonce = "logout-session-nonce"
+    await store.revokeAdminSession(
+      nonce,
+      new Date(Date.now() + 60_000).toISOString(),
+    )
+    assert.equal(await store.isAdminSessionRevoked(nonce), true)
+    assert.equal(await store.isAdminSessionRevoked("another-session"), false)
   })
 })

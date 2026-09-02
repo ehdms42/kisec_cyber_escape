@@ -9,6 +9,9 @@ const EMPTY_DATABASE = {
   campaigns: [],
   attempts: [],
   prizeAwards: [],
+  revokedSessions: [],
+  attemptAdjustments: [],
+  prizeAwardEvents: [],
 }
 
 function now() {
@@ -167,6 +170,52 @@ function documentMimeType(filename, fallback) {
   return fallback || "application/octet-stream"
 }
 
+function bufferStartsWith(buffer, signature) {
+  return (
+    Buffer.isBuffer(buffer) &&
+    buffer.length >= signature.length &&
+    buffer.subarray(0, signature.length).equals(signature)
+  )
+}
+
+function bufferIncludesHeader(buffer, signature, byteLimit) {
+  return (
+    Buffer.isBuffer(buffer) &&
+    buffer.subarray(0, Math.min(buffer.length, byteLimit)).indexOf(signature) >=
+      0
+  )
+}
+
+export function validateDocumentFile(file) {
+  const extension = path.extname(file?.originalname ?? "").toLowerCase()
+  const signatures = {
+    ".pdf": [Buffer.from("%PDF-")],
+    ".hwp": [
+      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      Buffer.from("HWP Document File"),
+    ],
+    ".hwpx": [Buffer.from([0x50, 0x4b, 0x03, 0x04])],
+  }
+  const expected = signatures[extension]
+  if (!expected) {
+    const error = new Error("PDF, HWP, HWPX 파일만 업로드할 수 있습니다.")
+    error.status = 415
+    throw error
+  }
+  const matches =
+    extension === ".pdf"
+      ? bufferIncludesHeader(file.buffer, expected[0], 1024)
+      : expected.some((signature) => bufferStartsWith(file.buffer, signature))
+  if (!matches) {
+    const error = new Error(
+      "파일 내용과 확장자가 일치하지 않습니다. 원본 문서를 확인해 주세요.",
+    )
+    error.status = 415
+    throw error
+  }
+  return extension
+}
+
 function validateQuestion(input) {
   if (!Number.isInteger(input?.ordinal) || input.ordinal < 1)
     throw new Error("문제 번호를 확인해 주세요.")
@@ -246,6 +295,55 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
   }
 
   return {
+    async revokeAdminSession(nonce, expiresAt) {
+      requireBackend()
+      if (!nonce || !expiresAt) throw new Error("폐기할 세션 정보가 없습니다.")
+      if (!supabase) {
+        await mutateLocal((database) => {
+          const currentTime = Date.now()
+          database.revokedSessions = database.revokedSessions.filter(
+            (session) =>
+              session.nonce !== nonce &&
+              new Date(session.expires_at).getTime() > currentTime,
+          )
+          database.revokedSessions.push({ nonce, expires_at: expiresAt })
+        })
+        return
+      }
+      const { error: cleanupError } = await supabase
+        .from("admin_revoked_sessions")
+        .delete()
+        .lt("expires_at", now())
+      if (cleanupError) throw cleanupError
+      const { error } = await supabase.from("admin_revoked_sessions").upsert({
+        nonce,
+        expires_at: expiresAt,
+      })
+      if (error) throw error
+    },
+
+    async isAdminSessionRevoked(nonce) {
+      requireBackend()
+      if (!nonce) return true
+      if (!supabase) {
+        const database = await readLocal()
+        const currentTime = Date.now()
+        return database.revokedSessions.some(
+          (session) =>
+            session.nonce === nonce &&
+            new Date(session.expires_at).getTime() > currentTime,
+        )
+      }
+      const { data, error } = await supabase
+        .from("admin_revoked_sessions")
+        .select("nonce")
+        .eq("nonce", nonce)
+        .gt("expires_at", now())
+        .maybeSingle()
+      if (error) throw error
+      return Boolean(data)
+    },
+
     async listQuestions() {
       requireBackend()
       if (!supabase) {
@@ -365,6 +463,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
 
     async registerDocument(file, metadata) {
       requireBackend()
+      validateDocumentFile(file)
       const id = randomUUID()
       const safeName = sanitizeFilename(file.originalname)
       const storagePath = `server-admin/${id}/${safeName}`
@@ -686,7 +785,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return data.map(toAttempt)
     },
 
-    async adjustAttempt(id, input) {
+    async adjustAttempt(id, input, actorId) {
       requireBackend()
       const action = String(input?.action ?? "")
       const reason = String(input?.reason ?? "")
@@ -696,6 +795,9 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         throw new Error("응시 기록 조정 방법을 확인해 주세요.")
       }
       if (reason.length < 3) throw new Error("조정 사유를 입력해 주세요.")
+      if (!String(actorId ?? "").trim()) {
+        throw new Error("관리자 식별자가 필요합니다.")
+      }
       if (!supabase) {
         await mutateLocal((database) => {
           const attempt = database.attempts.find((item) => item.id === id)
@@ -704,8 +806,18 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
             error.status = 404
             throw error
           }
+          database.attemptAdjustments.push({
+            id: randomUUID(),
+            attempt_id: id,
+            actor_login_id: actorId,
+            action,
+            reason,
+            previous_status: attempt.status,
+            created_at: now(),
+          })
           attempt.status = action === "void" ? "voided" : "in_progress"
           attempt.adjustment_reason = reason
+          attempt.adjusted_by_login_id = actorId
           if (action !== "void") attempt.completed_at = null
           if (action === "reset") {
             attempt.answered_count = 0
@@ -720,6 +832,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         p_attempt_id: id,
         p_action: action,
         p_reason: reason,
+        p_actor_id: actorId,
       })
       if (error) throw error
     },
@@ -792,8 +905,11 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       return data.map(toPrizeAward)
     },
 
-    async selectCampaignWinner(campaignId) {
+    async selectCampaignWinner(campaignId, actorId) {
       requireBackend()
+      if (!String(actorId ?? "").trim()) {
+        throw new Error("관리자 식별자가 필요합니다.")
+      }
       if (!supabase) {
         const rankings = await this.listRankings(campaignId)
         const winner = rankings[0]
@@ -815,6 +931,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
             note: current?.note ?? "",
             selected_at: now(),
             delivered_at: null,
+            handled_by_login_id: actorId,
           }
           database.prizeAwards = [
             row,
@@ -822,18 +939,28 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
               (item) => item.campaign_id !== campaignId,
             ),
           ]
+          database.prizeAwardEvents.push({
+            id: randomUUID(),
+            prize_award_id: row.id,
+            campaign_id: campaignId,
+            status: "selected",
+            note: "",
+            actor_login_id: actorId,
+            created_at: now(),
+          })
           return toPrizeAward(row)
         })
       }
       const { error } = await supabase.rpc("select_campaign_winner", {
         p_campaign_id: campaignId,
+        p_actor_id: actorId,
       })
       if (error) throw error
       const awards = await this.listPrizeAwards()
       return awards.find((award) => award.campaignId === campaignId) ?? null
     },
 
-    async updatePrizeAward(campaignId, input) {
+    async updatePrizeAward(campaignId, input, actorId) {
       requireBackend()
       const status = String(input?.status ?? "")
       const note = String(input?.note ?? "")
@@ -841,6 +968,9 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         .slice(0, 1000)
       if (!["selected", "notified", "delivered"].includes(status)) {
         throw new Error("상품 지급 상태를 확인해 주세요.")
+      }
+      if (!String(actorId ?? "").trim()) {
+        throw new Error("관리자 식별자가 필요합니다.")
       }
       if (!supabase) {
         await mutateLocal((database) => {
@@ -855,6 +985,16 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
           award.status = status
           award.note = note
           award.delivered_at = status === "delivered" ? now() : null
+          award.handled_by_login_id = actorId
+          database.prizeAwardEvents.push({
+            id: randomUUID(),
+            prize_award_id: award.id,
+            campaign_id: campaignId,
+            status,
+            note,
+            actor_login_id: actorId,
+            created_at: now(),
+          })
         })
         return
       }
@@ -862,6 +1002,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         p_campaign_id: campaignId,
         p_status: status,
         p_note: note,
+        p_actor_id: actorId,
       })
       if (error) throw error
     },

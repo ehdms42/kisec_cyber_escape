@@ -3069,7 +3069,7 @@ button:focus-visible {
 .level-entry-title strong {
   color: var(--blue-95);
   background: none;
-  -webkit-text-fill-color: currentColor;
+  -webkit-text-fill-color: currentcolor;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -3107,7 +3107,7 @@ button:focus-visible {
 
 .level-entry-close svg {
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 2.2px;
   stroke-linecap: round;
   width: 14px;
@@ -4089,7 +4089,7 @@ button:focus-visible {
 .admin-header-back svg,
 .admin-gate-back svg {
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.2;
@@ -4167,7 +4167,7 @@ button:focus-visible {
 
 .admin-icon {
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.9;
@@ -4379,8 +4379,8 @@ button:focus-visible {
 .admin-stat-grid {
   grid-template-columns: repeat(3, 1fr);
   background: #f8fbff;
-  border: 1px solid #b9cae0;
-  border-top: 3px solid #2d66bd;
+  border: 1px solid var(--ui-border);
+  border-top: 3px solid var(--blue-50);
   border-radius: 8px;
   gap: 0;
   margin-bottom: 22px;
@@ -4419,14 +4419,14 @@ button:focus-visible {
 .admin-question-section,
 .admin-document-section {
   background: #fff;
-  border: 1px solid #b9cae0;
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
   box-shadow: 0 12px 28px #02091438;
   overflow: hidden;
 }
 
 .admin-toolbar {
-  background: #f8fafd;
+  background: var(--ui-surface);
   border-bottom: 1px solid #d7e1ee;
   grid-template-columns: minmax(220px, 1fr) 150px auto;
   gap: 10px;
@@ -4564,7 +4564,7 @@ button:focus-visible {
 .admin-question-table i.draft,
 .admin-document-list i.review,
 .admin-document-list i.processing {
-  color: #775b21;
+  color: var(--ui-text-muted);
   background: transparent;
   box-shadow: none;
 }
@@ -4572,7 +4572,7 @@ button:focus-visible {
 .admin-question-table i.draft::before,
 .admin-document-list i.review::before,
 .admin-document-list i.processing::before {
-  background: #c9952c;
+  background: var(--blue-40);
 }
 
 .admin-document-list i.failed {
@@ -4997,7 +4997,7 @@ button:focus-visible {
 }
 
 .admin-extracted-question > span > b {
-  color: #9b6510;
+  color: var(--blue-60);
   margin-top: 5px;
   font-size: 10px;
 }
@@ -5150,7 +5150,7 @@ button:focus-visible {
 
 .admin-password-field svg {
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
@@ -5259,7 +5259,7 @@ button:focus-visible {
   }
 
   .admin-stat-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .admin-toolbar {
@@ -5319,8 +5319,8 @@ button:focus-visible {
 .institution-summary-grid {
   grid-template-columns: repeat(4, 1fr);
   background: #fff;
-  border: 1px solid #b9cae0;
-  border-top: 3px solid #2d66bd;
+  border: 1px solid var(--ui-border);
+  border-top: 3px solid var(--blue-50);
   border-radius: 8px;
   gap: 0;
   margin-bottom: 18px;
@@ -5543,7 +5543,7 @@ button:focus-visible {
 }
 
 .attempt-table-head {
-  color: #6b7e98;
+  color: var(--ui-text-muted);
   background: #f3f7fc;
   border-bottom: 1px solid #dce5f0;
   font-size: 10px;
@@ -5637,6 +5637,19 @@ button:focus-visible {
 
   .campaign-list-panel article > div {
     grid-column: 1 / -1;
+  }
+
+  .institution-list-panel article > button,
+  .campaign-list-panel article > div button,
+  .attempt-table article > div button {
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-stat-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -5737,7 +5750,7 @@ button:focus-visible {
 }
 
 .session-sync-warning {
-  z-index: 120;
+  z-index: 90;
   color: #6f151f;
   text-align: left;
   background: #fff1f3;
@@ -5790,8 +5803,8 @@ button:focus-visible {
 .ranking-summary-grid {
   grid-template-columns: repeat(4, 1fr);
   background: #fff;
-  border: 1px solid #b9cae0;
-  border-top: 3px solid #2d66bd;
+  border: 1px solid var(--ui-border);
+  border-top: 3px solid var(--blue-50);
   border-radius: 8px;
   gap: 0;
   margin-bottom: 18px;
@@ -5975,7 +5988,7 @@ button:focus-visible {
 }
 
 .ranking-table-head {
-  color: #6b7e98;
+  color: var(--ui-text-muted);
   background: #f3f7fc;
   border-bottom: 1px solid #dce5f0;
   font-size: 10px;

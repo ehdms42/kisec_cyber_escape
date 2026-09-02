@@ -11,33 +11,70 @@ import {
   ROOM_STAGES,
 } from "../game/config"
 import { splitQuestion } from "../game/question"
-import { QUESTIONS } from "../data/questions"
+import {
+  EMPTY_GAME_PROGRESS,
+  normalizeGameProgress,
+  type GameProgress,
+} from "../game/session"
+import type { Question } from "../data/questions"
 
 interface GameScreenProps {
-  onFinish: (score: number) => void
+  onFinish: (score: number) => void | Promise<void>
   onExit: () => void
+  initialProgress?: Record<string, unknown> | null
+  onProgress?: (progress: GameProgress) => void
+  onAnswer?: (
+    questionOrdinal: number,
+    selectedAnswer: number,
+  ) => boolean | Promise<boolean>
 }
 
-const GAME_QUESTIONS = QUESTIONS.slice(0, QUIZ_LENGTH)
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
 
-export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
-  const [phase, setPhase] = useState<GamePhase>("room")
-  const [completed, setCompleted] = useState<PuzzleId[]>([])
-  const [activeId, setActiveId] = useState<PuzzleId | null>(null)
-  const [questionStep, setQuestionStep] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
-  const [score, setScore] = useState(0)
-  const [answeredCount, setAnsweredCount] = useState(0)
-  const [levelScoreStart, setLevelScoreStart] = useState(0)
-  const [levelAnsweredStart, setLevelAnsweredStart] = useState(0)
+export default function GameScreen({
+  onFinish,
+  onExit,
+  initialProgress,
+  onProgress,
+  onAnswer,
+}: GameScreenProps) {
+  const initial = useRef(
+    initialProgress
+      ? normalizeGameProgress(initialProgress)
+      : EMPTY_GAME_PROGRESS,
+  ).current
+  const [phase, setPhase] = useState<GamePhase>(initial.phase)
+  const [completed, setCompleted] = useState<PuzzleId[]>(initial.completed)
+  const [activeId, setActiveId] = useState<PuzzleId | null>(initial.activeId)
+  const [questionStep, setQuestionStep] = useState(initial.questionStep)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(
+    initial.selectedAnswer,
+  )
+  const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(
+    initial.answerCorrect,
+  )
+  const [answerPending, setAnswerPending] = useState(false)
+  const [answerSubmitError, setAnswerSubmitError] = useState("")
+  const [score, setScore] = useState(initial.score)
+  const [answeredCount, setAnsweredCount] = useState(initial.answeredCount)
+  const [levelScoreStart, setLevelScoreStart] = useState(
+    initial.levelScoreStart,
+  )
+  const [levelAnsweredStart, setLevelAnsweredStart] = useState(
+    initial.levelAnsweredStart,
+  )
   const [selectedHotspot, setSelectedHotspot] =
-    useState<PuzzleId | "door" | null>(null)
-  const [codeInput, setCodeInput] = useState<number[]>([])
+    useState<PuzzleId | "door" | null>(initial.selectedHotspot)
+  const [codeInput, setCodeInput] = useState<number[]>(initial.codeInput)
   const [hasCodeError, setHasCodeError] = useState(false)
   const [isUnlocking, setIsUnlocking] = useState(false)
-  const [focusedId, setFocusedId] = useState<PuzzleId | null>(null)
+  const [focusedId, setFocusedId] = useState<PuzzleId | null>(initial.focusedId)
+  const [gameQuestions, setGameQuestions] = useState<Question[]>([])
+  const [questionLoadError, setQuestionLoadError] = useState("")
+  const [questionLoadKey, setQuestionLoadKey] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
+  const completionTimerRef = useRef<number | null>(null)
+  const answerRequestRef = useRef(0)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
@@ -46,7 +83,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     ? PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) + 1
     : null
   const questionIndex = activePuzzle?.questions[questionStep] ?? 0
-  const question = GAME_QUESTIONS[questionIndex]
+  const question = gameQuestions[questionIndex]
   const questionParts = question ? splitQuestion(question.question) : null
   const answered = selectedAnswer !== null
   const level = activePuzzle
@@ -77,6 +114,39 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     })
   }, [])
 
+  useEffect(
+    () => () => {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    setQuestionLoadError("")
+    import("../data/questionProvider")
+      .then(({ loadGameQuestions }) => loadGameQuestions(Boolean(onAnswer)))
+      .then((questions) => {
+        if (!cancelled) setGameQuestions(questions)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setGameQuestions([])
+          setQuestionLoadError(
+            error instanceof Error
+              ? error.message
+              : "문제를 불러오지 못했습니다.",
+          )
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [onAnswer, questionLoadKey])
+
   useEffect(() => {
     if (phase !== "room") return
 
@@ -89,7 +159,41 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     return () => window.cancelAnimationFrame(frame)
   }, [completed.length, phase])
 
+  useEffect(() => {
+    onProgress?.({
+      phase,
+      completed,
+      activeId,
+      questionStep,
+      selectedAnswer,
+      answerCorrect,
+      score,
+      answeredCount,
+      levelScoreStart,
+      levelAnsweredStart,
+      selectedHotspot,
+      codeInput,
+      focusedId,
+    })
+  }, [
+    activeId,
+    answeredCount,
+    codeInput,
+    completed,
+    focusedId,
+    levelAnsweredStart,
+    levelScoreStart,
+    onProgress,
+    phase,
+    questionStep,
+    score,
+    selectedAnswer,
+    answerCorrect,
+    selectedHotspot,
+  ])
+
   const openPuzzle = (puzzle: Puzzle, index: number) => {
+    if (gameQuestions.length !== QUIZ_LENGTH) return
     setSelectedHotspot(puzzle.id)
     setFocusedId(null)
 
@@ -106,15 +210,39 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     setActiveId(puzzle.id)
     setQuestionStep(0)
     setSelectedAnswer(null)
+    setAnswerCorrect(null)
+    setAnswerSubmitError("")
     setPhase("quiz")
   }
 
-  const chooseAnswer = (index: number) => {
-    if (answered || !question) return
+  const chooseAnswer = async (index: number) => {
+    if (answered || answerPending || !question) return
 
-    setSelectedAnswer(index)
-    setAnsweredCount((value) => value + 1)
-    if (index === question.answer) setScore((value) => value + 1)
+    const request = ++answerRequestRef.current
+    setAnswerPending(true)
+    setAnswerSubmitError("")
+    try {
+      const correct = onAnswer
+        ? await onAnswer(question.id, index)
+        : (await import("../data/questionAnswers")).isFallbackAnswerCorrect(
+            question.id,
+            index,
+          )
+      if (answerRequestRef.current !== request) return
+      setSelectedAnswer(index)
+      setAnswerCorrect(correct)
+      setAnsweredCount((value) => value + 1)
+      if (correct) setScore((value) => value + 1)
+    } catch (error) {
+      if (answerRequestRef.current !== request) return
+      setAnswerSubmitError(
+        error instanceof Error
+          ? error.message
+          : "답안을 확인하지 못했습니다. 다시 선택해 주세요.",
+      )
+    } finally {
+      if (answerRequestRef.current === request) setAnswerPending(false)
+    }
   }
 
   const goToNextQuestion = () => {
@@ -127,6 +255,8 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
     setQuestionStep((value) => value + 1)
     setSelectedAnswer(null)
+    setAnswerCorrect(null)
+    setAnswerSubmitError("")
   }
 
   const collectClue = () => {
@@ -154,7 +284,15 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
       setIsUnlocking(true)
-      window.setTimeout(() => onFinish(score), 850)
+      const timer = window.setTimeout(() => {
+        if (completionTimerRef.current !== timer) return
+        completionTimerRef.current = null
+        Promise.resolve(onFinish(score)).catch(() => {
+          setIsUnlocking(false)
+          setHasCodeError(true)
+        })
+      }, 850)
+      completionTimerRef.current = timer
       return
     }
 
@@ -173,11 +311,18 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
     }
 
     if (phase === "keypad") {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current)
+        completionTimerRef.current = null
+      }
+      setIsUnlocking(false)
       setPhase("room")
       return
     }
 
     if ((phase === "quiz" || phase === "reveal") && activePuzzle) {
+      answerRequestRef.current += 1
+      setAnswerPending(false)
       if (!completed.includes(activePuzzle.id)) {
         setScore(levelScoreStart)
         setAnsweredCount(levelAnsweredStart)
@@ -185,6 +330,8 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
       }
       setQuestionStep(0)
       setSelectedAnswer(null)
+      setAnswerCorrect(null)
+      setAnswerSubmitError("")
       setActiveId(null)
       setPhase("room")
       return
@@ -227,6 +374,28 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
           </div>
         </div>
       </header>
+
+      {gameQuestions.length !== QUIZ_LENGTH && (
+        <div className="game-question-gate" role="status" aria-live="polite">
+          <section>
+            <img src="/lock-front-blue-v2.png" alt="" aria-hidden="true" />
+            <strong>
+              {questionLoadError
+                ? "문제를 준비하지 못했습니다"
+                : "문제 확인 중…"}
+            </strong>
+            {questionLoadError && <p>{questionLoadError}</p>}
+            {questionLoadError && (
+              <button
+                type="button"
+                onClick={() => setQuestionLoadKey((value) => value + 1)}
+              >
+                다시 확인
+              </button>
+            )}
+          </section>
+        </div>
+      )}
 
       <section
         className="level-sheet"
@@ -485,18 +654,23 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
                 question={question}
                 parts={questionParts}
                 selectedAnswer={selectedAnswer}
+                answerCorrect={answerCorrect}
+                answerPending={answerPending}
                 onSelectAnswer={chooseAnswer}
               />
+              {answerSubmitError && (
+                <p className="admin-form-error" role="alert">
+                  {answerSubmitError}
+                </p>
+              )}
               {answered && (
                 <div
                   className={`mission-feedback ${
-                    selectedAnswer === question.answer ? "correct" : "wrong"
+                    answerCorrect ? "correct" : "wrong"
                   }`}
                 >
-                  <strong>
-                    {selectedAnswer === question.answer ? "정답" : "오답"}
-                  </strong>
-                  {selectedAnswer === question.answer && (
+                  <strong>{answerCorrect ? "정답" : "오답"}</strong>
+                  {answerCorrect && (
                     <span className="answer-reward">
                       <i>
                         <img src="/header-star.svg" alt="" aria-hidden="true" />
@@ -514,7 +688,7 @@ export default function GameScreen({ onFinish, onExit }: GameScreenProps) {
               <button
                 className="room-primary"
                 onClick={goToNextQuestion}
-                disabled={!answered}
+                disabled={!answered || answerPending}
               >
                 {questionStep === activePuzzle.questions.length - 1
                   ? "장치 해제"

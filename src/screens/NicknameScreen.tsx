@@ -24,7 +24,8 @@ export default function NicknameScreen({
         className="nickname-card"
         onSubmit={(event) => {
           event.preventDefault()
-          if (isValid) onConfirm(nickname)
+          if (!isValid) return
+          onConfirm(nickname)
         }}
       >
         <img
@@ -34,11 +35,9 @@ export default function NicknameScreen({
           aria-hidden="true"
         />
         <h1>요원명을 입력하세요</h1>
-        <span className="nickname-help">
-          탈출 기록과 추후 랭킹에 표시됩니다.
-        </span>
+        <span className="nickname-help">탈출 기록과 순위에 표시됩니다.</span>
         <label>
-          <span>닉네임</span>
+          <span>요원명</span>
           <input
             autoFocus
             value={value}
@@ -55,7 +54,7 @@ export default function NicknameScreen({
           </b>
         </label>
         <button type="submit" disabled={!isValid}>
-          확인
+          다음
         </button>
       </form>
     </div>

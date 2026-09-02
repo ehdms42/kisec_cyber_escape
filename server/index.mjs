@@ -109,13 +109,17 @@ function sessionFromRequest(req) {
 }
 
 async function requireAdmin(req, res, next) {
-  const session = sessionFromRequest(req)
-  if (!session || (await store.isAdminSessionRevoked(session.nonce))) {
-    res.status(401).json({ message: "관리자 로그인이 필요합니다." })
-    return
+  try {
+    const session = sessionFromRequest(req)
+    if (!session || (await store.isAdminSessionRevoked(session.nonce))) {
+      res.status(401).json({ message: "관리자 로그인이 필요합니다." })
+      return
+    }
+    req.adminSession = session
+    next()
+  } catch (error) {
+    next(error)
   }
-  req.adminSession = session
-  next()
 }
 
 function requireMutationProtection(req, res, next) {
@@ -251,6 +255,15 @@ app.post(
   requireMutationProtection,
   async (req, res) => {
     res.status(201).json(await store.createQuestions(req.body?.questions))
+  },
+)
+
+app.post(
+  "/api/admin/questions/legacy-sync",
+  requireAdmin,
+  requireMutationProtection,
+  async (req, res) => {
+    res.status(201).json(await store.createLegacyQuestions(req.body?.questions))
   },
 )
 

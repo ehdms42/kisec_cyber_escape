@@ -77,6 +77,26 @@ test("문제 일괄 등록은 번호 충돌 시 일부만 저장하지 않는다
   })
 })
 
+test("기존 문제 동기화의 정답은 서버 전용 키에서 결합한다", async () => {
+  await withLocalStore(async (store) => {
+    const [created] = await store.createLegacyQuestions([
+      {
+        ordinal: 1,
+        category: "보안",
+        prompt: "기존 문제",
+        options: ["보기 1", "보기 2", "보기 3", "보기 4"],
+        explanation: "",
+        sourceReference: "",
+        status: "published",
+        sourceDocumentId: null,
+        answerDocumentId: null,
+      },
+    ])
+
+    assert.equal(created.correctAnswer, 3)
+  })
+})
+
 test("문제지와 해답지를 한 세트로 구분해 저장한다", async () => {
   await withLocalStore(async (store) => {
     const pairId = "0198fb4a-94ab-7452-85de-dca777d333e1"

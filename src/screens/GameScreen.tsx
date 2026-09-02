@@ -74,6 +74,7 @@ export default function GameScreen({
   const [questionLoadKey, setQuestionLoadKey] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
   const completionTimerRef = useRef<number | null>(null)
+  const answerRequestRef = useRef(0)
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
@@ -217,6 +218,7 @@ export default function GameScreen({
   const chooseAnswer = async (index: number) => {
     if (answered || answerPending || !question) return
 
+    const request = ++answerRequestRef.current
     setAnswerPending(true)
     setAnswerSubmitError("")
     try {
@@ -226,18 +228,20 @@ export default function GameScreen({
             question.id,
             index,
           )
+      if (answerRequestRef.current !== request) return
       setSelectedAnswer(index)
       setAnswerCorrect(correct)
       setAnsweredCount((value) => value + 1)
       if (correct) setScore((value) => value + 1)
     } catch (error) {
+      if (answerRequestRef.current !== request) return
       setAnswerSubmitError(
         error instanceof Error
           ? error.message
           : "답안을 확인하지 못했습니다. 다시 선택해 주세요.",
       )
     } finally {
-      setAnswerPending(false)
+      if (answerRequestRef.current === request) setAnswerPending(false)
     }
   }
 
@@ -280,13 +284,15 @@ export default function GameScreen({
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
       setIsUnlocking(true)
-      completionTimerRef.current = window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
+        if (completionTimerRef.current !== timer) return
         completionTimerRef.current = null
         Promise.resolve(onFinish(score)).catch(() => {
           setIsUnlocking(false)
           setHasCodeError(true)
         })
       }, 850)
+      completionTimerRef.current = timer
       return
     }
 
@@ -315,6 +321,8 @@ export default function GameScreen({
     }
 
     if ((phase === "quiz" || phase === "reveal") && activePuzzle) {
+      answerRequestRef.current += 1
+      setAnswerPending(false)
       if (!completed.includes(activePuzzle.id)) {
         setScore(levelScoreStart)
         setAnsweredCount(levelAnsweredStart)
@@ -680,7 +688,7 @@ export default function GameScreen({
               <button
                 className="room-primary"
                 onClick={goToNextQuestion}
-                disabled={!answered}
+                disabled={!answered || answerPending}
               >
                 {questionStep === activePuzzle.questions.length - 1
                   ? "장치 해제"

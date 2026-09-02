@@ -1,5 +1,4 @@
 import { QUESTIONS } from "../data/questions"
-import { fallbackAnswerFor } from "../data/questionAnswers"
 import { adminRequest } from "./serverApi"
 import type {
   AdminQuestion,
@@ -37,12 +36,11 @@ export async function importLegacyQuestions() {
   const existingOrdinals = new Set(existing.map((question) => question.ordinal))
   const missing = QUESTIONS.filter(
     (question) => !existingOrdinals.has(question.id),
-  ).map<QuestionInput>((question) => ({
+  ).map((question) => ({
     ordinal: question.id,
     category: question.category,
     prompt: question.question,
     options: question.options,
-    correctAnswer: fallbackAnswerFor(question.id),
     explanation: question.explanation,
     sourceReference: question.reference ?? "",
     status: "published",
@@ -50,7 +48,11 @@ export async function importLegacyQuestions() {
     answerDocumentId: null,
   }))
 
-  return createQuestions(missing)
+  if (missing.length === 0) return []
+  return adminRequest<AdminQuestion[]>("/questions/legacy-sync", {
+    method: "POST",
+    body: JSON.stringify({ questions: missing }),
+  })
 }
 
 export async function registerQuestionDocument(

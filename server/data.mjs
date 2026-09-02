@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { LEGACY_QUESTION_ANSWERS } from "./question-answers.mjs"
 
 const EMPTY_DATABASE = {
   questions: [],
@@ -445,6 +446,21 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         .select("*")
       if (error) throw error
       return data.map(toQuestion)
+    },
+
+    async createLegacyQuestions(inputs) {
+      if (!Array.isArray(inputs)) {
+        throw new Error("동기화할 기존 문제를 확인해 주세요.")
+      }
+      return this.createQuestions(
+        inputs.map((input) => {
+          const correctAnswer = LEGACY_QUESTION_ANSWERS[input?.ordinal]
+          if (!Number.isInteger(correctAnswer)) {
+            throw new Error("기존 문제의 정답 번호를 찾을 수 없습니다.")
+          }
+          return { ...input, correctAnswer }
+        }),
+      )
     },
 
     async deleteQuestion(id) {

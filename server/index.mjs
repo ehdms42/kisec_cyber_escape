@@ -16,7 +16,7 @@ import {
 
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url))
 const isProduction = process.env.NODE_ENV === "production"
-const port = Number(process.env.API_PORT || 8787)
+const port = Number(process.env.PORT || process.env.API_PORT || 8787)
 const adminId = normalizeAdminId(process.env.ADMIN_LOGIN_ID)
 const passwordHash = process.env.ADMIN_PASSWORD_HASH ?? ""
 const sessionSecret = process.env.SESSION_SECRET ?? ""

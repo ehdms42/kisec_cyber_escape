@@ -91,3 +91,66 @@ test("중복 번호나 서로 충돌하는 정답은 자동 등록하지 않는�
   assert.ok(questions.every((question) => question.correctAnswer === -1))
   assert.match(questions[0].warnings.join(" "), /중복/)
 })
+
+test("괄호·Q 표기와 여러 종류의 보기 기호를 읽는다", () => {
+  const questions = parseQuestionSheet(`
+(1) 첫 번째 질문
+❶ 첫 보기
+❷ 둘째 보기
+
+Q2. 두 번째 질문
+㉠ 선택 가
+㉡ 선택 나
+
+[3] 세 번째 질문
+(A) 알파
+(B) 베타
+`)
+
+  assert.equal(questions.length, 3)
+  assert.deepEqual(questions[0].options, ["첫 보기", "둘째 보기"])
+  assert.deepEqual(questions[1].options, ["선택 가", "선택 나"])
+  assert.deepEqual(questions[2].options, ["알파", "베타"])
+})
+
+test("하이픈·콜론 정답표와 다른 원문 기호를 결합한다", () => {
+  const questions = mergeQuestionAndAnswerTexts(
+    `
+(1) 첫 번째 질문
+❶ 첫 보기
+❷ 둘째 보기
+Q2. 두 번째 질문
+㉠ 선택 가
+㉡ 선택 나
+`,
+    `1번 - ❷\n2: ㉠`,
+  )
+
+  assert.equal(questions[0].correctAnswer, 1)
+  assert.equal(questions[1].correctAnswer, 0)
+})
+
+test("가로형 정답표의 문항 번호와 정답 행을 열 단위로 읽는다", () => {
+  const answers = parseAnswerSheet(`
+| 문항 | 1 | 2 | 3 |
+| 정답 | ④ | ② | ① |
+| 해설 | 네 번째 보기 | 두 번째 보기 | 첫 번째 보기 |
+`)
+
+  assert.equal(answers.get(1)?.correctAnswer, 3)
+  assert.equal(answers.get(2)?.correctAnswer, 1)
+  assert.equal(answers.get(3)?.correctAnswer, 0)
+  assert.match(answers.get(1)?.explanation ?? "", /네 번째/)
+})
+
+test("번호 체계가 다른 두 문서는 순서로 보조 연결하고 검수를 요구한다", () => {
+  const questions = mergeQuestionAndAnswerTexts(
+    `1. 첫 질문\n① 하나\n② 둘\n2. 둘째 질문\n① 셋\n② 넷`,
+    `101. ②\n102. ①`,
+  )
+
+  assert.equal(questions[0].correctAnswer, 1)
+  assert.equal(questions[0].matchMethod, "order")
+  assert.ok(questions[0].confidence < 0.75)
+  assert.match(questions[0].warnings.join(" "), /순서로 연결/)
+})

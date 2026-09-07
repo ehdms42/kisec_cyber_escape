@@ -2,6 +2,7 @@ import { QUESTIONS } from "../data/questions"
 import { adminRequest } from "./serverApi"
 import type {
   AdminQuestion,
+  DocumentTextExtraction,
   DocumentStatus,
   QuestionDocument,
   QuestionInput,
@@ -65,6 +66,19 @@ export async function registerQuestionDocument(
   formData.append("role", role)
   formData.append("pairId", pairId)
   return adminRequest<QuestionDocument>("/documents", {
+    method: "POST",
+    body: formData,
+  })
+}
+
+export async function extractQuestionDocumentText(
+  file: File,
+  role: "question" | "answer",
+) {
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("role", role)
+  return adminRequest<DocumentTextExtraction>("/documents/extract", {
     method: "POST",
     body: formData,
   })

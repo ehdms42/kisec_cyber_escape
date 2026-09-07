@@ -1,5 +1,18 @@
-const CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"]
+const CIRCLED_NUMBER_SETS = [
+  ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"],
+  ["❶", "❷", "❸", "❹", "❺", "❻", "❼", "❽"],
+]
+const CIRCLED_NUMBERS = CIRCLED_NUMBER_SETS.flat()
+const PARENTHESIZED_KOREAN = ["㉠", "㉡", "㉢", "㉣", "㉤", "㉥", "㉦", "㉧"]
 const KOREAN_OPTIONS = ["가", "나", "다", "라", "마", "바", "사", "아"]
+
+function symbolOptionIndex(symbol) {
+  for (const numberSet of CIRCLED_NUMBER_SETS) {
+    const index = numberSet.indexOf(symbol)
+    if (index >= 0) return index
+  }
+  return PARENTHESIZED_KOREAN.indexOf(symbol)
+}
 
 export function cleanDocumentText(text) {
   return text
@@ -30,7 +43,7 @@ function expandedLines(text) {
     .split("\n")
     .flatMap((original) => {
       const line = original.trim()
-      if (!line) return []
+      if (!line) return [""]
       const cells = tableCells(line)
       return cells.length ? cells : [line]
     })
@@ -38,10 +51,10 @@ function expandedLines(text) {
 
 function parseAnswerToken(value) {
   const normalized = String(value).trim().toUpperCase()
-  const circledIndex = CIRCLED_NUMBERS.findIndex((number) =>
-    normalized.includes(number),
+  const optionSymbol = CIRCLED_NUMBERS.concat(PARENTHESIZED_KOREAN).find(
+    (symbol) => normalized.includes(symbol),
   )
-  if (circledIndex >= 0) return circledIndex
+  if (optionSymbol) return symbolOptionIndex(optionSymbol)
 
   const koreanIndex = KOREAN_OPTIONS.findIndex((letter) =>
     new RegExp(`(?:^|[^가-힣])${letter}(?:[^가-힣]|$)`).test(normalized),
@@ -57,13 +70,27 @@ function parseAnswerToken(value) {
 
 function questionStart(line) {
   const explicit = line.match(
-    /^(?:문제|문항|문)\s*(\d{1,3})\s*(?:[.)]|번)?\s*(.*)$/,
+    /^(?:문제|문항|문|제)\s*(\d{1,3})\s*(?:[.)]|번|문)?\s*(.*)$/,
   )
   if (explicit) {
     return { number: Number(explicit[1]), rest: explicit[2].trim() }
   }
 
-  const numbered = line.match(/^(\d{1,3})\s*(?:[.)]|번)\s*(.*)$/)
+  const decorated = line.match(
+    /^(?:Q(?:UESTION)?\s*[.:#-]?\s*)?[([【]\s*(\d{1,3})\s*[)\]】]\s*[.)]?\s*(.*)$/i,
+  )
+  if (decorated) {
+    return { number: Number(decorated[1]), rest: decorated[2].trim() }
+  }
+
+  const qNumber = line.match(
+    /^Q(?:UESTION)?\s*[.:#-]?\s*(\d{1,3})\s*(?:[.)]|번)?\s*(.*)$/i,
+  )
+  if (qNumber) {
+    return { number: Number(qNumber[1]), rest: qNumber[2].trim() }
+  }
+
+  const numbered = line.match(/^(\d{1,3})\s*(?:[.)]|번|[:：])\s*(.*)$/)
   if (numbered) {
     return { number: Number(numbered[1]), rest: numbered[2].trim() }
   }
@@ -75,22 +102,44 @@ function questionStart(line) {
 function splitQuestionBlocks(lines) {
   const blocks = []
   let current = null
+  let separated = false
 
   for (const line of lines) {
+    if (!line) {
+      separated = true
+      continue
+    }
+
+    if (current && separated && current.optionCount >= 2) {
+      const separatedStart = questionStart(line)
+      if (separatedStart) {
+        blocks.push(current)
+        current = {
+          number: separatedStart.number,
+          lines: separatedStart.rest ? [separatedStart.rest] : [],
+          optionCount: 0,
+        }
+        separated = false
+        continue
+      }
+    }
+
     if (current) {
-      const inlineOptions = inlineCircledOptions(line)
+      const inlineOptions = inlineSymbolOptions(line)
       if (inlineOptions.length) {
         current.lines.push(line)
         current.optionCount = Math.max(
           current.optionCount,
           ...inlineOptions.map((option) => option.index + 1),
         )
+        separated = false
         continue
       }
       const option = parseOption(line)
       if (option && option.index === current.optionCount) {
         current.lines.push(line)
         current.optionCount += 1
+        separated = false
         continue
       }
     }
@@ -103,20 +152,24 @@ function splitQuestionBlocks(lines) {
         lines: start.rest ? [start.rest] : [],
         optionCount: 0,
       }
+      separated = false
       continue
     }
-    if (current) current.lines.push(line)
+    if (current) {
+      current.lines.push(line)
+      separated = false
+    }
   }
 
   if (current) blocks.push(current)
   return blocks
 }
 
-function inlineCircledOptions(line) {
-  const matches = [...line.matchAll(/[①②③④⑤⑥⑦⑧]/g)]
+function inlineSymbolOptions(line) {
+  const matches = [...line.matchAll(/[①②③④⑤⑥⑦⑧❶❷❸❹❺❻❼❽㉠㉡㉢㉣㉤㉥㉦㉧]/g)]
   if (matches.length < 2) return []
   return matches.map((match, index) => {
-    const optionIndex = CIRCLED_NUMBERS.indexOf(match[0])
+    const optionIndex = symbolOptionIndex(match[0])
     const start = (match.index ?? 0) + match[0].length
     const end = matches[index + 1]?.index ?? line.length
     return { index: optionIndex, text: line.slice(start, end).trim() }
@@ -125,20 +178,24 @@ function inlineCircledOptions(line) {
 
 function parseOption(line) {
   const normalized = line.replace(/^\*+|\*+$/g, "").trim()
-  const circled = CIRCLED_NUMBERS.findIndex((number) =>
-    normalized.startsWith(number),
+  const optionSymbol = CIRCLED_NUMBERS.concat(PARENTHESIZED_KOREAN).find(
+    (symbol) => normalized.startsWith(symbol),
   )
-  if (circled >= 0) {
+  if (optionSymbol) {
     return {
-      index: circled,
-      text: normalized.slice(CIRCLED_NUMBERS[circled].length).trim(),
+      index: symbolOptionIndex(optionSymbol),
+      text: normalized.slice(optionSymbol.length).trim(),
     }
   }
 
-  const numeric = normalized.match(/^\(?([1-8])\)?[.)]\s*(.+)$/)
+  const numeric = normalized.match(
+    /^(?:\[|【|\()?([1-8])(?:\]|】|\))?(?:[.)]|번)?\s+(.+)$/,
+  )
   if (numeric) return { index: Number(numeric[1]) - 1, text: numeric[2].trim() }
 
-  const korean = normalized.match(/^([가나다라마바사아])[.)]\s*(.+)$/)
+  const korean = normalized.match(
+    /^(?:\()?([가나다라마바사아])(?:\))?[.)]?\s+(.+)$/,
+  )
   if (korean) {
     return {
       index: KOREAN_OPTIONS.indexOf(korean[1]),
@@ -146,7 +203,7 @@ function parseOption(line) {
     }
   }
 
-  const letter = normalized.match(/^([A-Ha-h])[.)]\s*(.+)$/)
+  const letter = normalized.match(/^\(?([A-Ha-h])\)?[.)]?\s+(.+)$/)
   return letter
     ? {
         index: letter[1].toUpperCase().charCodeAt(0) - 65,
@@ -177,7 +234,7 @@ function parseQuestionBlock(block) {
       continue
     }
 
-    const inlineOptions = inlineCircledOptions(line)
+    const inlineOptions = inlineSymbolOptions(line)
     if (inlineOptions.length) {
       for (const option of inlineOptions) options[option.index] = option.text
       continue
@@ -197,6 +254,16 @@ function parseQuestionBlock(block) {
   if (!promptLines.length) warnings.push("문제 본문을 확인해 주세요.")
   if (compactOptions.length < 2) warnings.push("보기가 두 개 미만입니다.")
 
+  const confidence = Math.max(
+    0,
+    Math.min(
+      0.72,
+      (promptLines.length ? 0.32 : 0) +
+        (compactOptions.length >= 2 ? 0.3 : compactOptions.length * 0.08) +
+        (block.number ? 0.1 : 0),
+    ),
+  )
+
   return {
     sourceNumber: block.number,
     category,
@@ -206,6 +273,8 @@ function parseQuestionBlock(block) {
     explanation: "",
     sourceReference,
     warnings,
+    confidence,
+    matchMethod: "unmatched",
   }
 }
 
@@ -216,7 +285,7 @@ export function parseQuestionSheet(text) {
 function answerMatches(line) {
   const matches = []
   const pattern =
-    /(?:문제|문항|문)?\s*(\d{1,3})(?:\s*번|\s*[.)]|\s*\|\s*|\s+)\s*(?:정답\s*[:：]?\s*)?([①②③④⑤⑥⑦⑧A-Ha-h가나다라마바사아1-8])/g
+    /(?:문제|문항|문|제)?\s*(\d{1,3})(?:\s*번|\s*[.)]|\s*\|\s*|\s*[:：=\-]\s*|\s+)\s*(?:[:：=\-]\s*)?(?:정답\s*[:：=\-]?\s*)?([①②③④⑤⑥⑦⑧❶❷❸❹❺❻❼❽㉠㉡㉢㉣㉤㉥㉦㉧A-Ha-h가나다라마바사아1-8])/g
   for (const match of line.matchAll(pattern)) {
     const answer = parseAnswerToken(match[2])
     if (answer !== null) {
@@ -250,8 +319,54 @@ function applyAnswer(entry, answer) {
 export function parseAnswerSheet(text) {
   const answers = new Map()
   let currentNumber = null
+  const lines = cleanDocumentText(text).split("\n")
+  const consumedTableLines = new Set()
 
-  for (const originalLine of cleanDocumentText(text).split("\n")) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const headerCells = tableCells(lines[index])
+    if (
+      headerCells.length < 3 ||
+      !/^(?:문항|문제(?:\s*번호)?|번호)$/i.test(headerCells[0])
+    ) {
+      continue
+    }
+    const numbers = headerCells.slice(1).map((cell) => {
+      const match = cell.match(/\d{1,3}/)
+      return match ? Number(match[0]) : null
+    })
+    if (numbers.filter(Boolean).length < 2) continue
+
+    for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
+      if (!lines[candidate].trim() || isTableDivider(lines[candidate])) continue
+      const answerCells = tableCells(lines[candidate])
+      if (!answerCells.length || !/^(?:정답|답)$/i.test(answerCells[0])) break
+      numbers.forEach((number, answerIndex) => {
+        const answer = parseAnswerToken(answerCells[answerIndex + 1])
+        if (!number || answer === null) return
+        const entry = answers.get(number) ?? {
+          correctAnswer: -1,
+          explanation: "",
+        }
+        applyAnswer(entry, answer)
+        answers.set(number, entry)
+      })
+      consumedTableLines.add(index)
+      consumedTableLines.add(candidate)
+
+      const explanationCells = tableCells(lines[candidate + 1] ?? "")
+      if (/^(?:해설|설명|풀이)$/i.test(explanationCells[0] ?? "")) {
+        numbers.forEach((number, answerIndex) => {
+          const entry = number ? answers.get(number) : null
+          if (entry) appendExplanation(entry, explanationCells[answerIndex + 1])
+        })
+        consumedTableLines.add(candidate + 1)
+      }
+      break
+    }
+  }
+
+  for (const [lineIndex, originalLine] of lines.entries()) {
+    if (consumedTableLines.has(lineIndex)) continue
     const line = originalLine.trim()
     if (!line || isTableDivider(line)) continue
 
@@ -326,10 +441,13 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
     return counts
   }, new Map())
 
-  return questions.map((question) => {
+  const usedAnswerNumbers = new Set()
+  const merged = questions.map((question) => {
     const answer = answers.get(question.sourceNumber)
+    if (answer) usedAnswerNumbers.add(question.sourceNumber)
     const warnings = [...question.warnings]
     let correctAnswer = answer?.correctAnswer ?? -1
+    let matchMethod = answer ? "number" : "unmatched"
 
     if ((questionNumberCounts.get(question.sourceNumber) ?? 0) > 1) {
       correctAnswer = -1
@@ -349,13 +467,59 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
       warnings.push("해답지에서 해설을 찾지 못했습니다.")
     }
 
+    const confidence =
+      correctAnswer >= 0
+        ? Math.min(0.98, question.confidence + (answer ? 0.24 : 0))
+        : Math.min(question.confidence, 0.45)
+
     return {
       ...question,
       correctAnswer,
       explanation: answer?.explanation ?? "",
       warnings,
+      confidence,
+      matchMethod,
     }
   })
+
+  const unmatchedQuestions = merged.filter(
+    (question) => question.matchMethod === "unmatched",
+  )
+  const unmatchedAnswers = [...answers.entries()].filter(
+    ([number]) => !usedAnswerNumbers.has(number),
+  )
+
+  if (
+    unmatchedQuestions.length >= 2 &&
+    unmatchedQuestions.length === unmatchedAnswers.length
+  ) {
+    unmatchedQuestions.forEach((question, index) => {
+      const [, answer] = unmatchedAnswers[index]
+      if (
+        answer.conflicted ||
+        answer.correctAnswer < 0 ||
+        answer.correctAnswer >= question.options.length
+      ) {
+        return
+      }
+      question.correctAnswer = answer.correctAnswer
+      question.explanation = answer.explanation
+      question.matchMethod = "order"
+      question.confidence = Math.min(question.confidence, 0.58)
+      question.warnings = question.warnings.filter(
+        (warning) =>
+          !warning.includes("정답 번호") && !warning.includes("해설을 찾지"),
+      )
+      question.warnings.push(
+        "문제 번호가 일치하지 않아 문서에 나온 순서로 연결했습니다. 정답을 확인해 주세요.",
+      )
+      if (!answer.explanation) {
+        question.warnings.push("해답지에서 해설을 찾지 못했습니다.")
+      }
+    })
+  }
+
+  return merged
 }
 
 export function parseQuestionsFromText(text) {

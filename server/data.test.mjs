@@ -110,9 +110,9 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
     )
     const answer = await store.registerDocument(
       {
-        originalname: "answers.hwpx",
-        mimetype: "application/zip",
-        buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
+        originalname: "answers.hwp",
+        mimetype: "application/vnd.hancom.hwp",
+        buffer: Buffer.from("HWP Document File"),
       },
       { role: "answer", pairId },
     )
@@ -120,7 +120,7 @@ test("문제지와 해답지를 한 세트로 구분해 저장한다", async () 
     assert.equal(question.documentRole, "question")
     assert.equal(answer.documentRole, "answer")
     assert.equal(question.pairId, answer.pairId)
-    assert.equal(answer.mimeType, "application/vnd.hancom.hwpx")
+    assert.equal(answer.mimeType, "application/vnd.hancom.hwp")
   })
 })
 
@@ -131,15 +131,37 @@ test("문서 확장자와 실제 파일 형식이 다르면 저장 전에 거부
         originalname: "renamed.pdf",
         buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
       }),
-    /파일 내용과 확장자가 일치하지 않습니다/,
+    /지원되는 한글 또는 PDF 문서 형식/,
   )
   assert.doesNotThrow(() =>
     validateDocumentFile({
       originalname: "legacy.hwp",
-      buffer: Buffer.from([
-        0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00,
-      ]),
+      buffer: Buffer.from("HWP Document File"),
     }),
+  )
+})
+
+test("한글 문서는 확장자가 달라도 라이브러리가 확인한 실제 형식으로 판별한다", () => {
+  assert.equal(
+    validateDocumentFile({
+      originalname: "renamed.hwpx",
+      buffer: Buffer.from("HWP Document File"),
+    }),
+    ".hwp",
+  )
+})
+
+test("일반 ZIP 파일을 HWPX로 오인하지 않는다", () => {
+  assert.throws(
+    () =>
+      validateDocumentFile({
+        originalname: "archive.hwpx",
+        buffer: Buffer.concat([
+          Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+          Buffer.from("ordinary-file.txt"),
+        ]),
+      }),
+    /지원되는 한글 또는 PDF 문서 형식/,
   )
 })
 

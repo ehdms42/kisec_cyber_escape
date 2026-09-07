@@ -44,6 +44,15 @@ export interface QuestionDocument {
   createdAt: string
 }
 
+export type DocumentExtractionMethod = "pdf-text" | "hwp-structure" | "clova-ocr"
+
+export interface DocumentTextExtraction {
+  text: string
+  method: DocumentExtractionMethod
+  confidence: number
+  warnings: string[]
+}
+
 export interface ExtractedQuestion {
   sourceNumber: number | null
   category: string
@@ -53,4 +62,6 @@ export interface ExtractedQuestion {
   explanation: string
   sourceReference: string
   warnings: string[]
+  confidence: number
+  matchMethod: "number" | "order" | "unmatched"
 }

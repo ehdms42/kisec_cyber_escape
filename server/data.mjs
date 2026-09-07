@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { hwp } from "@mdgate/hwp"
 import { LEGACY_QUESTION_ANSWERS } from "./question-answers.mjs"
+
+const hwpConverter = hwp()
 
 const EMPTY_DATABASE = {
   questions: [],
@@ -163,7 +166,10 @@ function sanitizeFilename(filename) {
   return safe.slice(0, 160) || "document"
 }
 
-function documentMimeType(filename, fallback) {
+function documentMimeType(filename, fallback, detectedExtension = null) {
+  if (detectedExtension === ".pdf") return "application/pdf"
+  if (detectedExtension === ".hwp") return "application/vnd.hancom.hwp"
+  if (detectedExtension === ".hwpx") return "application/vnd.hancom.hwpx"
   const extension = path.extname(filename).toLowerCase()
   if (extension === ".pdf") return "application/pdf"
   if (extension === ".hwp") return "application/vnd.hancom.hwp"
@@ -189,32 +195,45 @@ function bufferIncludesHeader(buffer, signature, byteLimit) {
 
 export function validateDocumentFile(file) {
   const extension = path.extname(file?.originalname ?? "").toLowerCase()
-  const signatures = {
-    ".pdf": [Buffer.from("%PDF-")],
-    ".hwp": [
-      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-      Buffer.from("HWP Document File"),
-    ],
-    ".hwpx": [Buffer.from([0x50, 0x4b, 0x03, 0x04])],
-  }
-  const expected = signatures[extension]
-  if (!expected) {
+  if (![".pdf", ".hwp", ".hwpx"].includes(extension)) {
     const error = new Error("PDF, HWP, HWPX 파일만 업로드할 수 있습니다.")
     error.status = 415
     throw error
   }
+
+  const zipSignatures = [
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+    Buffer.from([0x50, 0x4b, 0x07, 0x08]),
+  ]
+  const isPdf = bufferIncludesHeader(file.buffer, Buffer.from("%PDF-"), 1024)
+  const isZip = zipSignatures.some((signature) =>
+    bufferStartsWith(file.buffer, signature),
+  )
+  const isHancomDocument =
+    Buffer.isBuffer(file.buffer) &&
+    hwpConverter.sniff(new Uint8Array(file.buffer)) > 0
+
+  const detectedExtension = isPdf
+    ? ".pdf"
+    : isHancomDocument
+      ? isZip
+        ? ".hwpx"
+        : ".hwp"
+      : null
   const matches =
-    extension === ".pdf"
-      ? bufferIncludesHeader(file.buffer, expected[0], 1024)
-      : expected.some((signature) => bufferStartsWith(file.buffer, signature))
+    detectedExtension === extension ||
+    ([".hwp", ".hwpx"].includes(extension) &&
+      [".hwp", ".hwpx"].includes(detectedExtension))
+
   if (!matches) {
     const error = new Error(
-      "파일 내용과 확장자가 일치하지 않습니다. 원본 문서를 확인해 주세요.",
+      "지원되는 한글 또는 PDF 문서 형식을 확인하지 못했습니다. 암호가 설정된 문서나 확장자만 바꾼 파일인지 확인해 주세요.",
     )
     error.status = 415
     throw error
   }
-  return extension
+  return detectedExtension
 }
 
 function validateQuestion(input) {
@@ -479,11 +498,15 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
 
     async registerDocument(file, metadata) {
       requireBackend()
-      validateDocumentFile(file)
+      const detectedExtension = validateDocumentFile(file)
       const id = randomUUID()
       const safeName = sanitizeFilename(file.originalname)
       const storagePath = `server-admin/${id}/${safeName}`
-      const mimeType = documentMimeType(file.originalname, file.mimetype)
+      const mimeType = documentMimeType(
+        file.originalname,
+        file.mimetype,
+        detectedExtension,
+      )
       let row
 
       if (!supabase) {

@@ -4,7 +4,11 @@ import {
   registerQuestionDocument,
   updateQuestionDocument,
 } from "../../admin/questionRepository"
-import type { ExtractedQuestion, QuestionInput } from "../../admin/types"
+import type {
+  DocumentTextExtraction,
+  ExtractedQuestion,
+  QuestionInput,
+} from "../../admin/types"
 
 interface DocumentImportPanelProps {
   nextOrdinal: number
@@ -23,6 +27,20 @@ function isImportable(question: ExtractedQuestion) {
   )
 }
 
+function isAutoSelectable(question: ExtractedQuestion) {
+  return (
+    isImportable(question) &&
+    question.matchMethod === "number" &&
+    question.confidence >= 0.75
+  )
+}
+
+function extractionMethodLabel(method: DocumentTextExtraction["method"]) {
+  if (method === "clova-ocr") return "문자 인식"
+  if (method === "hwp-structure") return "한글 구조 분석"
+  return "PDF 문자 분석"
+}
+
 export default function DocumentImportPanel({
   nextOrdinal,
   onImport,
@@ -37,6 +55,10 @@ export default function DocumentImportPanel({
   const [questionText, setQuestionText] = useState("")
   const [answerText, setAnswerText] = useState("")
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([])
+  const [extractions, setExtractions] = useState<{
+    question: DocumentTextExtraction
+    answer: DocumentTextExtraction
+  } | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [processing, setProcessing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -105,6 +127,7 @@ export default function DocumentImportPanel({
     setQuestionText("")
     setAnswerText("")
     setQuestions([])
+    setExtractions(null)
     setSelected(new Set())
     setError("")
   }
@@ -131,10 +154,14 @@ export default function DocumentImportPanel({
       setQuestionText(result.questionText)
       setAnswerText(result.answerText)
       setQuestions(result.questions)
+      setExtractions({
+        question: result.questionExtraction,
+        answer: result.answerExtraction,
+      })
       setSelected(
         new Set(
           result.questions
-            .map((question, index) => (isImportable(question) ? index : -1))
+            .map((question, index) => (isAutoSelectable(question) ? index : -1))
             .filter((index) => index >= 0),
         ),
       )
@@ -317,15 +344,34 @@ export default function DocumentImportPanel({
               <b>{questionFile?.name}</b>
             </span>
             <span>
-              <small>추출</small>
-              <b>{questions.length}문항</b>
+              <small>문제지 분석</small>
+              <b>
+                {extractions
+                  ? `${extractionMethodLabel(extractions.question.method)} ${Math.round(extractions.question.confidence * 100)}%`
+                  : `${questions.length}문항`}
+              </b>
             </span>
             <span>
-              <small>등록 가능</small>
-              <b>{selectedCount}문항</b>
+              <small>해답지 분석</small>
+              <b>
+                {extractions
+                  ? `${extractionMethodLabel(extractions.answer.method)} ${Math.round(extractions.answer.confidence * 100)}%`
+                  : `${selectedCount}문항`}
+              </b>
             </span>
           </div>
         )}
+
+        {extractions &&
+          [...extractions.question.warnings, ...extractions.answer.warnings]
+            .length > 0 && (
+            <p className="admin-import-notice">
+              {[
+                ...extractions.question.warnings,
+                ...extractions.answer.warnings,
+              ].join(" ")}
+            </p>
+          )}
 
         {error && <p className="admin-form-error">{error}</p>}
 
@@ -359,6 +405,7 @@ export default function DocumentImportPanel({
                       {question.correctAnswer >= 0
                         ? `${question.correctAnswer + 1}번`
                         : "미확인"}
+                      {` · 분석 신뢰도 ${Math.round(question.confidence * 100)}%`}
                     </em>
                     {question.warnings.length > 0 && (
                       <b>{question.warnings.join(" · ")}</b>

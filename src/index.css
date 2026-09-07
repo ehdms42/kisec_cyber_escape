@@ -4939,6 +4939,18 @@ button:focus-visible {
   overflow: hidden;
 }
 
+.admin-import-notice {
+  color: #5a4930;
+  background: #fff8e8;
+  border: 1px solid #e7cf98;
+  border-left: 3px solid #d49a28;
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
 .admin-extracted-list {
   border: 1px solid #d4dfec;
   border-radius: var(--ui-radius-sm);

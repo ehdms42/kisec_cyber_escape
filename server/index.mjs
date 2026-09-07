@@ -5,6 +5,7 @@ import express from "express"
 import helmet from "helmet"
 import multer from "multer"
 import { createDataStore, validateDocumentFile } from "./data.mjs"
+import { extractDocument } from "./document-extraction.mjs"
 import {
   createSession,
   normalizeAdminId,
@@ -88,6 +89,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { files: 1, fileSize: 20 * 1024 * 1024 },
 })
+const documentExtractionOptions = {
+  clova: {
+    invokeUrl: process.env.CLOVA_OCR_INVOKE_URL?.trim() ?? "",
+    secret: process.env.CLOVA_OCR_SECRET?.trim() ?? "",
+  },
+}
 
 app.disable("x-powered-by")
 if (isProduction) app.set("trust proxy", 1)
@@ -314,6 +321,31 @@ app.post(
     res
       .status(201)
       .json(await store.registerDocument(req.file, { role, pairId }))
+  },
+)
+
+app.post(
+  "/api/admin/documents/extract",
+  requireAdmin,
+  requireMutationProtection,
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ message: "분석할 파일이 없습니다." })
+      return
+    }
+    validateDocumentFile(req.file)
+    const role = String(req.body?.role ?? "")
+    if (!["question", "answer"].includes(role)) {
+      res.status(400).json({ message: "문제지 또는 해답지 구분이 필요합니다." })
+      return
+    }
+    res.json(
+      await extractDocument(req.file, {
+        role,
+        ...documentExtractionOptions,
+      }),
+    )
   },
 )
 

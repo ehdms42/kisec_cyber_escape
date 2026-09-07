@@ -93,16 +93,22 @@ alter table public.game_attempts enable row level security;
 alter table public.attempt_answers enable row level security;
 alter table public.attempt_adjustments enable row level security;
 
+drop policy if exists "admins manage institutions" on public.institutions;
 create policy "admins manage institutions" on public.institutions
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "admins manage campaigns" on public.campaigns;
 create policy "admins manage campaigns" on public.campaigns
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "admins manage participants" on public.participants;
 create policy "admins manage participants" on public.participants
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "admins manage attempts" on public.game_attempts;
 create policy "admins manage attempts" on public.game_attempts
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "admins read attempt answers" on public.attempt_answers;
 create policy "admins read attempt answers" on public.attempt_answers
 for select to authenticated using (public.is_admin());
+drop policy if exists "admins read attempt adjustments" on public.attempt_adjustments;
 create policy "admins read attempt adjustments" on public.attempt_adjustments
 for select to authenticated using (public.is_admin());
 

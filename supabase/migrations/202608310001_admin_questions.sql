@@ -99,6 +99,7 @@ using (public.is_admin())
 with check (public.is_admin() and uploaded_by = auth.uid());
 
 drop policy if exists "published questions are readable" on public.questions;
+drop policy if exists "admins can read questions" on public.questions;
 create policy "admins can read questions"
 on public.questions
 for select

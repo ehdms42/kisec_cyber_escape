@@ -34,6 +34,7 @@ before update on public.prize_awards
 for each row execute function public.set_updated_at();
 
 alter table public.prize_awards enable row level security;
+drop policy if exists "admins manage prize awards" on public.prize_awards;
 create policy "admins manage prize awards" on public.prize_awards
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
 

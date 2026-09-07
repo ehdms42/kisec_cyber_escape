@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://kisec-cyber-escape.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

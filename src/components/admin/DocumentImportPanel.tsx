@@ -313,8 +313,10 @@ export default function DocumentImportPanel({
               onChange={(event) => selectFile("question", event)}
               disabled={processing || saving}
             />
+            <span>문제지</span>
             <b>{questionFile ? questionFile.name : "문제지 선택"}</b>
-            <span>PDF · HWP · HWPX</span>
+            <small>PDF · HWP · HWPX</small>
+            <i>{questionFile ? "변경" : "선택"}</i>
           </label>
           <label className="admin-file-drop">
             <input
@@ -323,8 +325,10 @@ export default function DocumentImportPanel({
               onChange={(event) => selectFile("answer", event)}
               disabled={processing || saving}
             />
+            <span>해답지</span>
             <b>{answerFile ? answerFile.name : "해답지 선택"}</b>
-            <span>문제지와 다른 형식도 가능</span>
+            <small>문제지와 다른 형식도 가능</small>
+            <i>{answerFile ? "변경" : "선택"}</i>
           </label>
         </div>
 
@@ -340,8 +344,8 @@ export default function DocumentImportPanel({
         {questions.length > 0 && (
           <div className="admin-import-summary">
             <span>
-              <small>문제지</small>
-              <b>{questionFile?.name}</b>
+              <small>추출 결과</small>
+              <b>{questions.length}문항</b>
             </span>
             <span>
               <small>문제지 분석</small>

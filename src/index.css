@@ -4718,6 +4718,11 @@ button:focus-visible {
 
 .admin-import-panel {
   width: min(920px, 100%);
+  background: #fbfcfe;
+  border-width: 1px;
+  border-color: #9db4d1;
+  border-radius: 8px;
+  box-shadow: 0 5px 0 #123d76, 0 24px 60px #01050d99;
 }
 
 .admin-editor > header,
@@ -4840,15 +4845,22 @@ button:focus-visible {
 }
 
 .admin-file-drop {
-  color: var(--blue-80);
+  color: var(--blue-90);
   cursor: pointer;
-  background: #f2f7fe;
-  border: 1px dashed var(--blue-40);
-  border-radius: var(--ui-radius-sm);
-  place-items: center;
-  min-height: 122px;
-  padding: 20px;
+  background: #f4f7fb;
+  border: 1px solid #c7d4e4;
+  border-radius: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 14px;
+  min-height: 76px;
+  padding: 13px 15px;
   display: grid;
+}
+
+.admin-file-drop:hover {
+  background: #edf3fa;
+  border-color: #91afd2;
 }
 
 .admin-document-pair {
@@ -4862,6 +4874,7 @@ button:focus-visible {
 }
 
 .admin-document-pair .admin-file-drop b {
+  grid-column: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
@@ -4870,15 +4883,17 @@ button:focus-visible {
 
 .admin-pair-analyze {
   color: #fff;
-  background: var(--ui-gradient-action);
-  border: 2px solid #cfe2ff;
-  border-radius: var(--ui-radius-sm);
-  width: 100%;
-  min-height: 46px;
-  margin-top: 12px;
+  background: #205db2;
+  border: 1px solid #164986;
+  border-radius: 6px;
+  width: auto;
+  min-height: 42px;
+  margin: 12px 0 0 auto;
+  padding: 0 24px;
   font-size: 12px;
   font-weight: 800;
-  box-shadow: 0 4px 0 var(--blue-80);
+  box-shadow: 0 3px 0 #0b3268;
+  display: block;
 }
 
 .admin-pair-analyze:disabled {
@@ -4895,12 +4910,34 @@ button:focus-visible {
 }
 
 .admin-file-drop b {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-file-drop span {
+  color: var(--blue-60);
+  grid-column: 1;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-file-drop small {
   color: var(--ui-text-muted);
+  grid-column: 1;
+  font-size: 10px;
+}
+
+.admin-file-drop i {
+  color: var(--blue-70);
+  border: 1px solid #aec4de;
+  border-radius: 4px;
+  grid-column: 2;
+  grid-row: 1 / 4;
+  min-width: 52px;
+  padding: 8px 9px;
+  text-align: center;
   font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .admin-file-drop.is-processing {
@@ -4910,15 +4947,23 @@ button:focus-visible {
 
 .admin-import-summary {
   grid-template-columns: 2fr 1fr 1fr;
-  gap: 8px;
+  gap: 0;
+  background: #f1f4f8;
+  border: 1px solid #d1dbe7;
+  border-radius: 6px;
   margin: 14px 0;
   display: grid;
+  overflow: hidden;
 }
 
 .admin-import-summary > span {
-  background: #f1f5fb;
-  border-left: 3px solid var(--blue-40);
+  background: transparent;
+  border-right: 1px solid #d7e0eb;
   padding: 10px 12px;
+}
+
+.admin-import-summary > span:last-child {
+  border-right: 0;
 }
 
 .admin-import-summary small,
@@ -4940,10 +4985,10 @@ button:focus-visible {
 }
 
 .admin-import-notice {
-  color: #5a4930;
-  background: #fff8e8;
-  border: 1px solid #e7cf98;
-  border-left: 3px solid #d49a28;
+  color: #435a74;
+  background: #f3f6fa;
+  border: 1px solid #ccd8e6;
+  border-radius: 5px;
   margin: 0 0 12px;
   padding: 9px 11px;
   font-size: 10px;
@@ -5324,6 +5369,15 @@ button:focus-visible {
   .admin-document-pair,
   .admin-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-import-summary > span {
+    border-right: 0;
+    border-bottom: 1px solid #d7e0eb;
+  }
+
+  .admin-import-summary > span:last-child {
+    border-bottom: 0;
   }
 }
 

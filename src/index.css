@@ -3545,11 +3545,25 @@ button:focus-visible {
   top: -68px;
 }
 
+.department-badge-image {
+  filter: drop-shadow(0 10px 7px #0208178f) drop-shadow(0 0 10px #277af063);
+  width: 118px;
+  height: 118px;
+  top: -59px;
+  overflow: visible;
+}
+
 @media (width <= 374px) {
   .agent-badge-image {
     width: 116px;
     height: 116px;
     top: -62px;
+  }
+
+  .department-badge-image {
+    width: 108px;
+    height: 108px;
+    top: -54px;
   }
 }
 

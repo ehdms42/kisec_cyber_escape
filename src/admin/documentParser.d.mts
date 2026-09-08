@@ -3,6 +3,9 @@ import type { ExtractedQuestion } from "./types"
 export interface AnswerSheetEntry {
   correctAnswer: number
   explanation: string
+  explanationProvided: boolean
+  category: string
+  sourceReference: string
   conflicted?: boolean
 }
 

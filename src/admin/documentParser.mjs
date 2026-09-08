@@ -102,24 +102,40 @@ function questionStart(line) {
 function splitQuestionBlocks(lines) {
   const blocks = []
   let current = null
-  let separated = false
 
   for (const line of lines) {
-    if (!line) {
-      separated = true
-      continue
-    }
+    if (!line) continue
 
-    if (current && separated && current.optionCount >= 2) {
-      const separatedStart = questionStart(line)
-      if (separatedStart) {
+    const option = current ? parseOption(line) : null
+    const continuesOptionGroup =
+      option &&
+      option.kind === current?.optionKind &&
+      option.index === current?.optionCount
+    const startsOptionGroup =
+      option &&
+      option.index === 0 &&
+      option.kind !== current?.optionKind &&
+      (current?.optionKind === null ||
+        option.kind !== "numeric" ||
+        /^(?:\(|\[|【)\s*1\s*(?:\)|\]|】)/.test(line))
+    const isUnambiguousNumberedOption =
+      option?.kind !== "numeric" ||
+      /^(?:(?:\(|\[|【)\s*\d+\s*(?:\)|\]|】)|\d+\s*\))/.test(line)
+
+    if (current && current.optionCount >= 2) {
+      const sequentialStart = questionStart(line)
+      if (
+        sequentialStart?.number === current.number + 1 &&
+        (!(continuesOptionGroup || startsOptionGroup) ||
+          !isUnambiguousNumberedOption)
+      ) {
         blocks.push(current)
         current = {
-          number: separatedStart.number,
-          lines: separatedStart.rest ? [separatedStart.rest] : [],
+          number: sequentialStart.number,
+          lines: sequentialStart.rest ? [sequentialStart.rest] : [],
           optionCount: 0,
+          optionKind: null,
         }
-        separated = false
         continue
       }
     }
@@ -128,18 +144,17 @@ function splitQuestionBlocks(lines) {
       const inlineOptions = inlineSymbolOptions(line)
       if (inlineOptions.length) {
         current.lines.push(line)
+        current.optionKind = "symbol"
         current.optionCount = Math.max(
           current.optionCount,
           ...inlineOptions.map((option) => option.index + 1),
         )
-        separated = false
         continue
       }
-      const option = parseOption(line)
-      if (option && option.index === current.optionCount) {
+      if (continuesOptionGroup || startsOptionGroup) {
         current.lines.push(line)
-        current.optionCount += 1
-        separated = false
+        current.optionKind = option.kind
+        current.optionCount = option.index + 1
         continue
       }
     }
@@ -151,13 +166,12 @@ function splitQuestionBlocks(lines) {
         number: start.number,
         lines: start.rest ? [start.rest] : [],
         optionCount: 0,
+        optionKind: null,
       }
-      separated = false
       continue
     }
     if (current) {
       current.lines.push(line)
-      separated = false
     }
   }
 
@@ -172,7 +186,11 @@ function inlineSymbolOptions(line) {
     const optionIndex = symbolOptionIndex(match[0])
     const start = (match.index ?? 0) + match[0].length
     const end = matches[index + 1]?.index ?? line.length
-    return { index: optionIndex, text: line.slice(start, end).trim() }
+    return {
+      index: optionIndex,
+      text: line.slice(start, end).trim(),
+      kind: "symbol",
+    }
   })
 }
 
@@ -185,38 +203,68 @@ function parseOption(line) {
     return {
       index: symbolOptionIndex(optionSymbol),
       text: normalized.slice(optionSymbol.length).trim(),
+      kind: "symbol",
     }
   }
 
   const numeric = normalized.match(
-    /^(?:\[|【|\()?([1-8])(?:\]|】|\))?(?:[.)]|번)?\s+(.+)$/,
+    /^(?:\[|【|\()?([1-8])(?:\]|】|\))?\s*(?:[.)]|번)?\s+(.+)$/,
   )
-  if (numeric) return { index: Number(numeric[1]) - 1, text: numeric[2].trim() }
-
-  const korean = normalized.match(
-    /^(?:\()?([가나다라마바사아])(?:\))?[.)]?\s+(.+)$/,
-  )
-  if (korean) {
+  if (numeric) {
     return {
-      index: KOREAN_OPTIONS.indexOf(korean[1]),
-      text: korean[2].trim(),
+      index: Number(numeric[1]) - 1,
+      text: numeric[2].trim(),
+      kind: "numeric",
     }
   }
 
-  const letter = normalized.match(/^\(?([A-Ha-h])\)?[.)]?\s+(.+)$/)
+  const korean = normalized.match(
+    /^(?:\()?([가나다라마바사아])(?:\))?\s*[.)]?\s+(.+)$/,
+  )
+  if (korean && !/^[\s.,·]+$/.test(korean[2])) {
+    return {
+      index: KOREAN_OPTIONS.indexOf(korean[1]),
+      text: korean[2].trim(),
+      kind: "korean",
+    }
+  }
+
+  const letter = normalized.match(/^\(?([A-Ha-h])\)?\s*[.)]?\s+(.+)$/)
   return letter
     ? {
         index: letter[1].toUpperCase().charCodeAt(0) - 65,
         text: letter[2].trim(),
+        kind: "letter",
       }
     : null
 }
 
 function parseQuestionBlock(block) {
   const promptLines = []
-  const options = []
+  const optionGroups = []
+  let currentOptionGroup = null
+  let currentOptionIndex = null
   let category = "미분류"
   let sourceReference = ""
+
+  const beginOptionGroup = (kind) => {
+    currentOptionGroup = { kind, options: [] }
+    optionGroups.push(currentOptionGroup)
+  }
+
+  const addOptions = (candidates) => {
+    for (const option of candidates) {
+      if (
+        !currentOptionGroup ||
+        currentOptionGroup.kind !== option.kind ||
+        (option.index === 0 && currentOptionGroup.options[0])
+      ) {
+        beginOptionGroup(option.kind)
+      }
+      currentOptionGroup.options[option.index] = option.text
+      currentOptionIndex = option.index
+    }
+  }
 
   for (const originalLine of block.lines) {
     const line = originalLine.replace(/^\|?|\|?$/g, "").trim()
@@ -236,29 +284,58 @@ function parseQuestionBlock(block) {
 
     const inlineOptions = inlineSymbolOptions(line)
     if (inlineOptions.length) {
-      for (const option of inlineOptions) options[option.index] = option.text
+      addOptions(inlineOptions)
       continue
     }
 
     const option = parseOption(line)
     if (option) {
-      options[option.index] = option.text
+      addOptions([option])
       continue
     }
 
-    promptLines.push(line)
+    if (currentOptionGroup && currentOptionIndex !== null) {
+      currentOptionGroup.options[currentOptionIndex] = [
+        currentOptionGroup.options[currentOptionIndex],
+        line,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    } else {
+      promptLines.push(line)
+    }
   }
 
-  const compactOptions = options.filter(Boolean)
+  const selectableGroup = [...optionGroups]
+    .reverse()
+    .find((group) => group.options.filter(Boolean).length >= 2)
+  const compactOptions = selectableGroup?.options.filter(Boolean) ?? []
+  const supportingLines = optionGroups
+    .filter((group) => group !== selectableGroup)
+    .flatMap((group) =>
+      group.options.flatMap((option, index) => {
+        if (!option) return []
+        const label =
+          group.kind === "korean"
+            ? `${KOREAN_OPTIONS[index]}.`
+            : group.kind === "letter"
+              ? `${String.fromCharCode(65 + index)}.`
+              : group.kind === "symbol"
+                ? (CIRCLED_NUMBER_SETS[0][index] ?? `${index + 1}.`)
+                : `(${index + 1})`
+        return [`${label} ${option}`]
+      }),
+    )
   const warnings = []
-  if (!promptLines.length) warnings.push("문제 본문을 확인해 주세요.")
+  const prompt = [...promptLines, ...supportingLines].join("\n").trim()
+  if (!prompt) warnings.push("문제 본문을 확인해 주세요.")
   if (compactOptions.length < 2) warnings.push("보기가 두 개 미만입니다.")
 
   const confidence = Math.max(
     0,
     Math.min(
       0.72,
-      (promptLines.length ? 0.32 : 0) +
+      (prompt ? 0.32 : 0) +
         (compactOptions.length >= 2 ? 0.3 : compactOptions.length * 0.08) +
         (block.number ? 0.1 : 0),
     ),
@@ -267,7 +344,7 @@ function parseQuestionBlock(block) {
   return {
     sourceNumber: block.number,
     category,
-    prompt: promptLines.join("\n").trim(),
+    prompt,
     options: compactOptions,
     correctAnswer: -1,
     explanation: "",
@@ -300,12 +377,41 @@ function answerMatches(line) {
 }
 
 function appendExplanation(entry, value) {
+  const labeled = /^(?:해설|설명|풀이)\s*[:：-]?/.test(value.trim())
   const cleaned = value
     .replace(/^(?:해설|설명|풀이)\s*[:：-]?\s*/, "")
     .replace(/^\|+|\|+$/g, "")
     .trim()
-  if (!cleaned || /^(?:정답|답안)$/.test(cleaned)) return
+  if (labeled || cleaned) entry.explanationProvided = true
+  if (
+    !cleaned ||
+    /^(?:정답|답안)$/.test(cleaned) ||
+    /^(?:-|없음|해당\s*없음)$/i.test(cleaned)
+  ) {
+    return
+  }
   entry.explanation = [entry.explanation, cleaned].filter(Boolean).join("\n")
+}
+
+function appendSourceReference(entry, value) {
+  const cleaned = value
+    .replace(/^(?:참고|출처|근거)\s*[:：-]?\s*/, "")
+    .replace(/^\|+|\|+$/g, "")
+    .trim()
+  if (!cleaned || /^(?:-|없음|해당\s*없음)$/i.test(cleaned)) return
+  entry.sourceReference = [entry.sourceReference, cleaned]
+    .filter(Boolean)
+    .join("\n")
+}
+
+function createAnswerEntry() {
+  return {
+    correctAnswer: -1,
+    explanation: "",
+    explanationProvided: false,
+    category: "",
+    sourceReference: "",
+  }
 }
 
 function applyAnswer(entry, answer) {
@@ -319,6 +425,7 @@ function applyAnswer(entry, answer) {
 export function parseAnswerSheet(text) {
   const answers = new Map()
   let currentNumber = null
+  let currentField = null
   const lines = cleanDocumentText(text).split("\n")
   const consumedTableLines = new Set()
 
@@ -343,10 +450,7 @@ export function parseAnswerSheet(text) {
       numbers.forEach((number, answerIndex) => {
         const answer = parseAnswerToken(answerCells[answerIndex + 1])
         if (!number || answer === null) return
-        const entry = answers.get(number) ?? {
-          correctAnswer: -1,
-          explanation: "",
-        }
+        const entry = answers.get(number) ?? createAnswerEntry()
         applyAnswer(entry, answer)
         answers.set(number, entry)
       })
@@ -370,6 +474,49 @@ export function parseAnswerSheet(text) {
     const line = originalLine.trim()
     if (!line || isTableDivider(line)) continue
 
+    const sectionHeader = line.match(
+      /^(?:문제|문항)?\s*(\d{1,3})\s*(?:번|[.)])\s*(?:\(([^)]+)\)|\[([^\]]+)\])?\s*$/,
+    )
+    if (sectionHeader) {
+      currentNumber = Number(sectionHeader[1])
+      const entry = answers.get(currentNumber) ?? createAnswerEntry()
+      entry.category =
+        sectionHeader[2]?.trim() ?? sectionHeader[3]?.trim() ?? entry.category
+      answers.set(currentNumber, entry)
+      currentField = null
+      continue
+    }
+
+    if (currentNumber !== null) {
+      const entry = answers.get(currentNumber) ?? createAnswerEntry()
+      const directAnswer = line.match(
+        /^(?:정답|답안?|모범답안)\s*[:：=\-]?\s*(.+)$/,
+      )
+      if (directAnswer) {
+        const answer = parseAnswerToken(directAnswer[1])
+        if (answer !== null) applyAnswer(entry, answer)
+        answers.set(currentNumber, entry)
+        currentField = "answer"
+        continue
+      }
+
+      const explanation = line.match(/^(?:해설|설명|풀이)\s*[:：-]?\s*(.*)$/)
+      if (explanation) {
+        appendExplanation(entry, explanation[1])
+        answers.set(currentNumber, entry)
+        currentField = "explanation"
+        continue
+      }
+
+      const source = line.match(/^(?:참고|출처|근거)\s*[:：-]?\s*(.*)$/)
+      if (source) {
+        appendSourceReference(entry, source[1])
+        answers.set(currentNumber, entry)
+        currentField = "source"
+        continue
+      }
+    }
+
     const cells = tableCells(line)
     if (
       cells.length >= 2 &&
@@ -380,10 +527,7 @@ export function parseAnswerSheet(text) {
         (cell, index) => index > 0 && parseAnswerToken(cell) !== null,
       )
       if (number && answerCellIndex > 0) {
-        const entry = answers.get(number) ?? {
-          correctAnswer: -1,
-          explanation: "",
-        }
+        const entry = answers.get(number) ?? createAnswerEntry()
         applyAnswer(entry, parseAnswerToken(cells[answerCellIndex]))
         cells
           .slice(answerCellIndex + 1)
@@ -397,33 +541,33 @@ export function parseAnswerSheet(text) {
     const matches = answerMatches(line)
     if (matches.length > 1) {
       for (const match of matches) {
-        const entry = answers.get(match.number) ?? {
-          correctAnswer: -1,
-          explanation: "",
-        }
+        const entry = answers.get(match.number) ?? createAnswerEntry()
         applyAnswer(entry, match.answer)
         answers.set(match.number, entry)
       }
       currentNumber = null
+      currentField = null
       continue
     }
 
     if (matches.length === 1) {
       const match = matches[0]
-      const entry = answers.get(match.number) ?? {
-        correctAnswer: -1,
-        explanation: "",
-      }
+      const entry = answers.get(match.number) ?? createAnswerEntry()
       applyAnswer(entry, match.answer)
       appendExplanation(entry, line.slice(match.end))
       answers.set(match.number, entry)
       currentNumber = match.number
+      currentField = "explanation"
       continue
     }
 
     if (currentNumber !== null) {
       const entry = answers.get(currentNumber)
-      if (entry) appendExplanation(entry, line)
+      if (entry && currentField === "explanation") {
+        appendExplanation(entry, line)
+      } else if (entry && currentField === "source") {
+        appendSourceReference(entry, line)
+      }
     }
   }
 
@@ -463,7 +607,7 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
         warnings.push("해답지의 정답 번호를 확인해 주세요.")
       }
     }
-    if (!answer?.explanation) {
+    if (!answer?.explanation && !answer?.explanationProvided) {
       warnings.push("해답지에서 해설을 찾지 못했습니다.")
     }
 
@@ -474,8 +618,14 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
 
     return {
       ...question,
+      category:
+        question.category === "미분류" && answer?.category
+          ? answer.category
+          : question.category,
       correctAnswer,
       explanation: answer?.explanation ?? "",
+      sourceReference:
+        question.sourceReference || answer?.sourceReference || "",
       warnings,
       confidence,
       matchMethod,
@@ -504,6 +654,12 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
       }
       question.correctAnswer = answer.correctAnswer
       question.explanation = answer.explanation
+      if (question.category === "미분류" && answer.category) {
+        question.category = answer.category
+      }
+      if (!question.sourceReference && answer.sourceReference) {
+        question.sourceReference = answer.sourceReference
+      }
       question.matchMethod = "order"
       question.confidence = Math.min(question.confidence, 0.58)
       question.warnings = question.warnings.filter(
@@ -513,7 +669,7 @@ export function mergeQuestionAndAnswerTexts(questionText, answerText) {
       question.warnings.push(
         "문제 번호가 일치하지 않아 문서에 나온 순서로 연결했습니다. 정답을 확인해 주세요.",
       )
-      if (!answer.explanation) {
+      if (!answer.explanation && !answer.explanationProvided) {
         question.warnings.push("해답지에서 해설을 찾지 못했습니다.")
       }
     })

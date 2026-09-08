@@ -143,6 +143,58 @@ test("가로형 정답표의 문항 번호와 정답 행을 열 단위로 읽는
   assert.match(answers.get(1)?.explanation ?? "", /네 번째/)
 })
 
+test("문항 제목과 정답이 분리된 한글 해답지를 읽는다", () => {
+  const answers = parseAnswerSheet(`
+문제 모범답안 및 해설
+
+1.(비공개 업무자료 처리)
+정답 : 4번
+설명 : -
+참고 : 국가정보보안기본지침 제66조
+
+2.(단말기 보안)
+정답 : 3번
+설명 : 모든 단말기에는 최신 백신을 설치하여야 한다.
+참고 : 국가정보보안기본지침 제74조
+`)
+
+  assert.equal(answers.size, 2)
+  assert.equal(answers.get(1)?.correctAnswer, 3)
+  assert.equal(answers.get(1)?.category, "비공개 업무자료 처리")
+  assert.equal(answers.get(1)?.explanation, "")
+  assert.match(answers.get(1)?.sourceReference ?? "", /제66조/)
+  assert.equal(answers.get(2)?.correctAnswer, 2)
+  assert.match(answers.get(2)?.explanation ?? "", /최신 백신/)
+})
+
+test("조합형 문제의 조건 목록과 최종 보기를 구분한다", () => {
+  const [question] = mergeQuestionAndAnswerTexts(
+    `
+1. 적절한 처리 방법을 모두 고르시오.
+가 . 내부망 PC에서 작성한다.
+나 . 승인된 저장매체에 저장한다.
+다 . 외부 메일로 전송한다.
+(1) 가
+(2) 가, 나
+(3) 나, 다
+(4) 가, 나, 다
+`,
+    `
+1.(자료 처리)
+정답 : 2번
+설명 : 승인된 환경을 사용해야 한다.
+참고 : 보안지침 제1조
+`,
+  )
+
+  assert.equal(question.options.length, 4)
+  assert.deepEqual(question.options, ["가", "가, 나", "나, 다", "가, 나, 다"])
+  assert.match(question.prompt, /가\. 내부망 PC/)
+  assert.equal(question.correctAnswer, 1)
+  assert.equal(question.category, "자료 처리")
+  assert.equal(question.sourceReference, "보안지침 제1조")
+})
+
 test("번호 체계가 다른 두 문서는 순서로 보조 연결하고 검수를 요구한다", () => {
   const questions = mergeQuestionAndAnswerTexts(
     `1. 첫 질문\n① 하나\n② 둘\n2. 둘째 질문\n① 셋\n② 넷`,

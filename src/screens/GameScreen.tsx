@@ -18,10 +18,6 @@ import {
 } from "../game/session"
 import type { Question } from "../data/questions"
 import type { AnswerVerification } from "../admin/institutionTypes"
-import {
-  recommendedLevelForQuestion,
-  SECURITY_LEVEL_META,
-} from "../game/securityLevel"
 
 interface GameScreenProps {
   onFinish: (score: number) => void | Promise<void>
@@ -660,14 +656,7 @@ export default function GameScreen({
           {phase === "quiz" && question && questionParts && (
             <section className="object-quiz-panel">
               <div className="question-progress">
-                <span>
-                  {
-                    SECURITY_LEVEL_META[
-                      recommendedLevelForQuestion(question.id)
-                    ].label
-                  }{" "}
-                  추천
-                </span>
+                <span>{question.category}</span>
                 <b>
                   문항 {questionStep + 1} / {activePuzzle.questions.length}
                 </b>

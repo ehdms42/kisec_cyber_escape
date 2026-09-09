@@ -104,6 +104,10 @@ function toAttempt(row) {
 }
 
 function toRanking(row) {
+  const total = Math.max(1, Number(row.answered_count) || 0)
+  const rate = Math.max(0, Number(row.verified_score) || 0) / total
+  const derivedSecurityLevel =
+    rate >= 0.8 ? "advanced" : rate >= 0.6 ? "intermediate" : "beginner"
   return {
     rank: Number(row.rank),
     attemptId: row.attempt_id,
@@ -112,6 +116,7 @@ function toRanking(row) {
     institutionName: row.institution_name,
     nickname: row.nickname,
     department: row.department ?? "",
+    securityLevel: row.security_level ?? derivedSecurityLevel,
     verifiedScore: row.verified_score,
     answeredCount: row.answered_count,
     elapsedSeconds: row.elapsed_seconds,

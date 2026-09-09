@@ -12,15 +12,15 @@ export const SECURITY_LEVEL_META: Record<SecurityLevel, {
 }> = {
   beginner: {
     label: "초급",
-    shortDescription: "정보보안 개념을 처음 익히는 단계",
+    shortDescription: "기본 보안 수칙을 차근차근 익혀가는 단계",
   },
   intermediate: {
     label: "중급",
-    shortDescription: "기본 개념으로 간단한 문제를 해결하는 단계",
+    shortDescription: "보안 개념을 이해하고 실무 문제에 적용하는 단계",
   },
   advanced: {
     label: "고급",
-    shortDescription: "웹 해킹이나 CTF 경험이 있는 단계",
+    shortDescription: "복합적인 보안 위협까지 정확하게 판단하는 단계",
   },
 }
 
@@ -28,14 +28,13 @@ export function isSecurityLevel(value: unknown): value is SecurityLevel {
   return SECURITY_LEVELS.includes(value as SecurityLevel)
 }
 
-export function recommendedLevelForQuestion(ordinal: number): SecurityLevel {
-  if (ordinal <= 10) return "beginner"
-  if (ordinal <= 20) return "intermediate"
-  return "advanced"
-}
-
-export function diagnosedSecurityLevel(score: number): SecurityLevel {
-  if (score >= 3) return "advanced"
-  if (score >= 2) return "intermediate"
+export function securityLevelFromResult(
+  correctAnswers: number,
+  totalQuestions: number,
+): SecurityLevel {
+  const safeTotal = Math.max(1, totalQuestions)
+  const rate = Math.min(1, Math.max(0, correctAnswers) / safeTotal)
+  if (rate >= 0.8) return "advanced"
+  if (rate >= 0.6) return "intermediate"
   return "beginner"
 }

@@ -1,7 +1,7 @@
 import { isAdminDemoMode, supabase } from "../lib/supabase"
 import { isFallbackAnswerCorrect } from "../data/questionAnswers"
 import { announceLeaderboardChange } from "../game/liveLeaderboard"
-import { isSecurityLevel, type SecurityLevel } from "../game/securityLevel"
+import { isSecurityLevel, securityLevelFromResult } from "../game/securityLevel"
 import type {
   AnswerVerification,
   AttemptSession,
@@ -21,6 +21,7 @@ const DEMO_SESSION_KEY = `${DEMO_ATTEMPT_KEY}-sessions`
 interface CompleteAttemptResult {
   verified_score: number
   answered_count: number
+  security_level: "beginner" | "intermediate" | "advanced"
 }
 
 interface AnswerResult {
@@ -297,7 +298,6 @@ export async function startOrResumeAttempt(
   participantCode: string,
   nickname: string,
   department: string,
-  securityLevel: SecurityLevel,
 ): Promise<AttemptSession> {
   if (isAdminDemoMode) {
     const campaign = await getPublicCampaign(publicToken)
@@ -309,7 +309,12 @@ export async function startOrResumeAttempt(
         ...existing,
         securityLevel: isSecurityLevel(existing.securityLevel)
           ? existing.securityLevel
-          : securityLevel,
+          : existing.status === "completed"
+            ? securityLevelFromResult(
+                existing.verifiedScore,
+                existing.requiredQuestionCount,
+              )
+            : null,
       }
     }
     const session: AttemptSession = {
@@ -318,7 +323,7 @@ export async function startOrResumeAttempt(
       status: "in_progress",
       nickname,
       department,
-      securityLevel,
+      securityLevel: null,
       institutionName: campaign.institutionName,
       campaignTitle: campaign.campaignTitle,
       requiredQuestionCount: campaign.requiredQuestionCount,
@@ -357,7 +362,6 @@ export async function startOrResumeAttempt(
       p_participant_code: participantCode,
       p_nickname: nickname,
       p_department: department,
-      p_security_level: securityLevel,
     },
   )
   if (error) throw error
@@ -369,7 +373,7 @@ export async function startOrResumeAttempt(
     department: data.department,
     securityLevel: isSecurityLevel(data.security_level)
       ? data.security_level
-      : securityLevel,
+      : null,
     institutionName: data.institution_name,
     campaignTitle: data.campaign_title,
     requiredQuestionCount: data.required_question_count,
@@ -494,6 +498,10 @@ export async function completeAttempt(
       throw new Error("필수 문항 응답이 모두 기록되지 않았습니다.")
     }
     const completedAt = now()
+    const securityLevel = securityLevelFromResult(
+      attempt.verifiedScore,
+      session.requiredQuestionCount,
+    )
     writeDemo(
       DEMO_ATTEMPT_KEY,
       demoAttempts().map((item) =>
@@ -511,12 +519,14 @@ export async function completeAttempt(
       ...current,
       status: "completed",
       state,
+      securityLevel,
       completedAt,
       resumeToken: null,
     }))
     return {
       verified_score: attempt.verifiedScore,
       answered_count: attempt.answeredCount,
+      security_level: securityLevel,
     }
   }
   const { data, error } = await requireSupabase().rpc("complete_attempt", {

@@ -1,3 +1,5 @@
+import type { SecurityLevel } from "../game/securityLevel"
+
 export interface RankingEntry {
   rank: number
   attemptId: string
@@ -6,6 +8,7 @@ export interface RankingEntry {
   institutionName: string
   nickname: string
   department: string
+  securityLevel: SecurityLevel
   verifiedScore: number
   answeredCount: number
   elapsedSeconds: number

@@ -16,7 +16,7 @@ interface LiveLeaderboardProps {
   publicToken: string
   currentAttemptId: string
   currentNickname: string
-  currentSecurityLevel: SecurityLevel
+  currentSecurityLevel: SecurityLevel | null
 }
 
 type RankingFilter = SecurityLevel | "all"
@@ -178,11 +178,15 @@ export default function LiveLeaderboard({
             <h2>참가자 순위</h2>
             <p>
               {currentNickname}
-              <b
-                className={`security-level-chip level-${currentSecurityLevel}`}
-              >
-                {SECURITY_LEVEL_META[currentSecurityLevel].label}
-              </b>
+              {currentSecurityLevel ? (
+                <b
+                  className={`security-level-chip level-${currentSecurityLevel}`}
+                >
+                  {SECURITY_LEVEL_META[currentSecurityLevel].label}
+                </b>
+              ) : (
+                <b className="security-level-chip level-pending">평가 중</b>
+              )}
             </p>
           </div>
           <button
@@ -271,11 +275,17 @@ export default function LiveLeaderboard({
                     {entry.nickname}
                     {current && <em>나</em>}
                   </strong>
-                  <span
-                    className={`security-level-chip level-${entry.securityLevel}`}
-                  >
-                    {SECURITY_LEVEL_META[entry.securityLevel].label}
-                  </span>
+                  {entry.securityLevel ? (
+                    <span
+                      className={`security-level-chip level-${entry.securityLevel}`}
+                    >
+                      {SECURITY_LEVEL_META[entry.securityLevel].label}
+                    </span>
+                  ) : (
+                    <span className="security-level-chip level-pending">
+                      평가 중
+                    </span>
+                  )}
                 </div>
                 <div className="live-ranking-score">
                   <b>{entry.verifiedScore}</b>

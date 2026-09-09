@@ -6,21 +6,25 @@ import {
   normalizeGameProgress,
   type GameProgress,
 } from "./game/session"
-import { isSecurityLevel, type SecurityLevel } from "./game/securityLevel"
+import {
+  isSecurityLevel,
+  SECURITY_LEVEL_META,
+  securityLevelFromResult,
+  type SecurityLevel,
+} from "./game/securityLevel"
+import { QUIZ_LENGTH } from "./game/config"
 import DesignSystemScreen from "./screens/DesignSystemScreen"
 import DepartmentScreen from "./screens/DepartmentScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
 import OnboardingScreen from "./screens/OnboardingScreen"
 import ResultScreen from "./screens/ResultScreen"
-import SecurityLevelScreen from "./screens/SecurityLevelScreen"
 import TitleScreen from "./screens/TitleScreen"
 
-type Screen = "title" | "nickname" | "department" | "security-level" | "story" | "game" | "result" | "locked"
+type Screen = "title" | "nickname" | "department" | "story" | "game" | "result" | "locked"
 
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
 const DEPARTMENT_STORAGE_KEY = "cyber-quest-department"
-const SECURITY_LEVEL_STORAGE_KEY = "cyber-quest-security-level"
 const PROGRESS_CACHE_PREFIX = "cyber-quest-progress"
 const AdminScreen = lazy(() => import("./screens/AdminScreen"))
 const CAMPAIGN_TOKEN = new URLSearchParams(window.location.search).get(
@@ -60,11 +64,7 @@ export default function App() {
   const [department, setDepartment] = useState(
     () => window.localStorage.getItem(DEPARTMENT_STORAGE_KEY) ?? "",
   )
-  const [participantCode, setParticipantCode] = useState("")
-  const [securityLevel, setSecurityLevel] = useState<SecurityLevel>(() => {
-    const saved = window.localStorage.getItem(SECURITY_LEVEL_STORAGE_KEY)
-    return isSecurityLevel(saved) ? saved : "beginner"
-  })
+  const [securityLevel, setSecurityLevel] = useState<SecurityLevel | null>(null)
   const [score, setScore] = useState(0)
   const [gameKey, setGameKey] = useState(0)
   const [hasGameSession, setHasGameSession] = useState(false)
@@ -137,6 +137,7 @@ export default function App() {
 
   const finishGame = async (finalScore: number) => {
     let resultScore = finalScore
+    let resultSecurityLevel = securityLevelFromResult(finalScore, QUIZ_LENGTH)
     if (attemptSession) {
       let result
       try {
@@ -155,6 +156,12 @@ export default function App() {
         throw error
       }
       resultScore = result?.verified_score ?? finalScore
+      resultSecurityLevel = isSecurityLevel(result?.security_level)
+        ? result.security_level
+        : securityLevelFromResult(
+            resultScore,
+            result?.answered_count ?? attemptSession.requiredQuestionCount,
+          )
       window.localStorage.removeItem(progressCacheKey(attemptSession.attemptId))
       setAttemptSession((current) =>
         current
@@ -162,6 +169,7 @@ export default function App() {
               ...current,
               status: "completed",
               verifiedScore: resultScore,
+              securityLevel: resultSecurityLevel,
               completedAt: new Date().toISOString(),
               resumeToken: null,
             }
@@ -169,44 +177,34 @@ export default function App() {
       )
     }
     setScore(resultScore)
+    setSecurityLevel(resultSecurityLevel)
     setScreen("result")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const confirmNickname = (name: string) => {
     setNickname(name)
+    setSecurityLevel(null)
     window.localStorage.setItem(NICKNAME_STORAGE_KEY, name)
     setScreen("department")
   }
 
-  const confirmDepartment = (
+  const confirmDepartment = async (
     departmentName: string,
-    nextParticipantCode: string,
+    participantCode: string,
   ) => {
     setDepartment(departmentName)
     window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, departmentName)
-    setParticipantCode(nextParticipantCode)
-    setScreen("security-level")
-  }
-
-  const confirmSecurityLevel = async (nextLevel: SecurityLevel) => {
-    setSecurityLevel(nextLevel)
-    window.localStorage.setItem(SECURITY_LEVEL_STORAGE_KEY, nextLevel)
     if (CAMPAIGN_TOKEN) {
       const { startOrResumeAttempt } = await loadAttemptApi()
       const session = await startOrResumeAttempt(
         CAMPAIGN_TOKEN,
         participantCode,
         nickname,
-        department,
-        nextLevel,
+        departmentName,
       )
       setAttemptSession(session)
       setSecurityLevel(session.securityLevel)
-      window.localStorage.setItem(
-        SECURITY_LEVEL_STORAGE_KEY,
-        session.securityLevel,
-      )
       if (session.status !== "in_progress") {
         setScore(session.verifiedScore)
         setScreen("locked")
@@ -322,16 +320,15 @@ export default function App() {
         onConfirm={confirmDepartment}
       />
     ),
-    "security-level": (
-      <SecurityLevelScreen
-        initialLevel={securityLevel}
-        onConfirm={confirmSecurityLevel}
-      />
-    ),
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,
     game: null,
     result: (
-      <ResultScreen score={score} onBack={goBackFromResult} onHome={goHome} />
+      <ResultScreen
+        score={score}
+        securityLevel={securityLevel}
+        onBack={goBackFromResult}
+        onHome={goHome}
+      />
     ),
     locked: (
       <div className="app-frame attempt-locked-screen">
@@ -349,6 +346,11 @@ export default function App() {
             문의해 주세요.
           </p>
           <strong>최종 점수 {score} / 30</strong>
+          {securityLevel && (
+            <strong>
+              정보보안 등급 {SECURITY_LEVEL_META[securityLevel].label}
+            </strong>
+          )}
           <a href="/">확인</a>
         </section>
       </div>

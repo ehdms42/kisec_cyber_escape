@@ -1,4 +1,5 @@
 import { isAdminDemoMode } from "../lib/supabase"
+import { securityLevelFromResult } from "../game/securityLevel"
 import { listAttempts } from "./institutionRepository"
 import type { PrizeAward, PrizeStatus, RankingEntry } from "./rankingTypes"
 import { adminRequest } from "./serverApi"
@@ -84,6 +85,10 @@ export async function listRankings(
           institutionName: attempt.institutionName,
           nickname: attempt.nickname,
           department: attempt.department,
+          securityLevel: securityLevelFromResult(
+            attempt.verifiedScore,
+            attempt.answeredCount,
+          ),
           verifiedScore: attempt.verifiedScore,
           answeredCount: attempt.answeredCount,
           elapsedSeconds: Math.max(

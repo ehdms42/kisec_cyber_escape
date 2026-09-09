@@ -402,6 +402,46 @@ button:focus-visible {
   padding: 19px 0 0;
 }
 
+.result-security-grade {
+  text-align: left;
+  grid-template-columns: auto 48px;
+  align-items: center;
+  gap: 2px 12px;
+  margin: 0 4px 18px;
+  padding: 0 7px 16px;
+  border-bottom: 1px solid var(--blue-20);
+  display: grid;
+}
+
+.result-security-grade span {
+  color: var(--blue-60);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.result-security-grade strong {
+  color: #fff;
+  text-align: center;
+  background: var(--blue-70);
+  border: 1px solid var(--blue-40);
+  border-radius: 6px;
+  grid-row: 1 / 3;
+  grid-column: 2;
+  min-width: 48px;
+  padding: 7px 6px;
+  box-shadow: 0 3px 0 var(--blue-90);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.result-security-grade small {
+  color: var(--ui-text-muted);
+  word-break: keep-all;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .reward-scoreline {
   grid-template-columns: 1fr 1fr;
   gap: 0;
@@ -5395,145 +5435,6 @@ button:focus-visible {
   }
 }
 
-/* Participant security level */
-.security-level-card {
-  width: 100%;
-  padding-top: 72px;
-}
-
-.security-level-badge {
-  filter: drop-shadow(0 10px 8px #0208178f) drop-shadow(0 0 10px #277af052);
-  width: 118px;
-  height: 118px;
-  top: -58px;
-  overflow: visible;
-}
-
-.security-level-options {
-  gap: 8px;
-  margin-top: 20px;
-  display: grid;
-}
-
-.security-level-options button {
-  color: var(--blue-95);
-  text-align: left;
-  cursor: pointer;
-  background: #edf3fa;
-  border: 1px solid #c8d7ea;
-  border-radius: 10px;
-  grid-template-columns: 55px 1fr;
-  align-items: center;
-  gap: 11px;
-  min-height: 58px;
-  padding: 9px 13px;
-  transition: transform var(--ui-transition), border-color var(--ui-transition), background var(--ui-transition);
-  display: grid;
-}
-
-.security-level-options button:hover:not(:disabled),
-.security-level-options button.is-saved {
-  background: #f8fbff;
-  border-color: var(--blue-40);
-  transform: translateX(3px);
-}
-
-.security-level-options button b {
-  color: #fff;
-  text-align: center;
-  background: var(--blue-70);
-  border: 1px solid var(--blue-40);
-  border-radius: 7px;
-  padding: 7px 4px;
-  box-shadow: 0 3px 0 var(--blue-90);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.security-level-options button span {
-  color: #4d627e;
-  word-break: keep-all;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.45;
-}
-
-.security-diagnostic-start {
-  margin-top: 15px;
-}
-
-.security-diagnostic-progress {
-  color: var(--blue-60);
-  border-bottom: 1px solid #d7e2ef;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-  padding-bottom: 10px;
-  font-size: 11px;
-  font-weight: 800;
-  display: flex;
-}
-
-.security-diagnostic-question {
-  min-height: 62px;
-  margin-bottom: 18px !important;
-  font-size: 20px !important;
-  line-height: 1.5 !important;
-}
-
-.security-diagnostic-answers {
-  gap: 9px;
-  display: grid;
-}
-
-.security-diagnostic-answers button {
-  color: var(--blue-95);
-  text-align: left;
-  cursor: pointer;
-  background: #edf3fa;
-  border: 1px solid #c8d7ea;
-  border-radius: 10px;
-  grid-template-columns: 34px 1fr;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 650;
-  display: grid;
-}
-
-.security-diagnostic-answers button:hover:not(:disabled) {
-  background: #fff;
-  border-color: var(--blue-40);
-}
-
-.security-diagnostic-answers button span {
-  color: #fff;
-  background: var(--blue-70);
-  border-radius: 7px;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  font: 800 12px var(--ui-font-number);
-  display: grid;
-}
-
-.security-level-card > .security-diagnostic-cancel {
-  color: var(--blue-60);
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  min-height: 40px;
-  margin-top: 10px;
-  padding: 0;
-  font-size: 11px;
-}
-
-.security-level-card > .security-diagnostic-cancel:before {
-  content: none;
-}
-
 /* Live participant leaderboard */
 .game-live-layout[hidden] {
   display: none !important;
@@ -5700,6 +5601,12 @@ button:focus-visible {
   color: #eef5ff;
   background: #24447d;
   border-color: #668fd1;
+}
+
+.security-level-chip.level-pending {
+  color: #a9bad0;
+  background: #132943;
+  border-color: #3a5776;
 }
 
 .live-ranking-filters {
@@ -5974,15 +5881,6 @@ button:focus-visible {
 }
 
 @media (width <= 374px) {
-  .security-level-card {
-    width: calc(100% - 26px);
-    padding-inline: 18px;
-  }
-
-  .security-level-options button {
-    grid-template-columns: 49px 1fr;
-  }
-
   .live-ranking-panel {
     padding-inline: 10px;
   }
@@ -6711,6 +6609,11 @@ button:focus-visible {
   color: var(--ui-text-muted);
   margin-top: 2px;
   font-size: 9px;
+}
+
+.ranking-table article > span .security-level-chip {
+  justify-self: start;
+  margin-top: 5px;
 }
 
 .ranking-table article > em {

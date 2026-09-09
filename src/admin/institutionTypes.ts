@@ -52,7 +52,7 @@ export interface AttemptSession {
   status: AttemptStatus
   nickname: string
   department: string
-  securityLevel: SecurityLevel
+  securityLevel: SecurityLevel | null
   institutionName: string
   campaignTitle: string
   requiredQuestionCount: number

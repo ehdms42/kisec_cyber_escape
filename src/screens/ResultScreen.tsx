@@ -1,7 +1,13 @@
 import { QUIZ_LENGTH } from "../game/config"
+import {
+  SECURITY_LEVEL_META,
+  securityLevelFromResult,
+  type SecurityLevel,
+} from "../game/securityLevel"
 
 interface ResultScreenProps {
   score: number
+  securityLevel?: SecurityLevel | null
   onBack: () => void
   onHome: () => void
 }
@@ -24,12 +30,16 @@ function getResultGrade(rate: number) {
 
 export default function ResultScreen({
   score,
+  securityLevel,
   onBack,
   onHome,
 }: ResultScreenProps) {
   const safeScore = Math.min(Math.max(score, 0), QUIZ_LENGTH)
   const rate = Math.round((safeScore / QUIZ_LENGTH) * 100)
   const grade = getResultGrade(rate)
+  const resultSecurityLevel =
+    securityLevel ?? securityLevelFromResult(safeScore, QUIZ_LENGTH)
+  const securityLevelMeta = SECURITY_LEVEL_META[resultSecurityLevel]
   const rewardXp = safeScore * 100
 
   return (
@@ -45,7 +55,7 @@ export default function ResultScreen({
 
       <main
         className="reward-board"
-        aria-label={`정답 ${safeScore}개, 등급 별 ${grade.stars}개 획득`}
+        aria-label={`정답 ${safeScore}개, 별 ${grade.stars}개, 정보보안 등급 ${securityLevelMeta.label}`}
       >
         <header className="result-heading">
           <h1>탈출 성공</h1>
@@ -69,6 +79,12 @@ export default function ResultScreen({
         <p className="result-message">{grade.message}</p>
 
         <section className="reward-card">
+          <div className={`result-security-grade level-${resultSecurityLevel}`}>
+            <span>정보보안 등급</span>
+            <strong>{securityLevelMeta.label}</strong>
+            <small>{securityLevelMeta.shortDescription}</small>
+          </div>
+
           <div className="reward-scoreline">
             <span>
               <small>정답</small>

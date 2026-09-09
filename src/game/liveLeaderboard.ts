@@ -5,7 +5,7 @@ export interface LiveRankingEntry {
   rank: number
   attemptId: string
   nickname: string
-  securityLevel: SecurityLevel
+  securityLevel: SecurityLevel | null
   verifiedScore: number
   answeredCount: number
   scoreReachedAt: string
@@ -18,7 +18,7 @@ interface LiveRankingRow {
   rank: number
   attempt_id: string
   nickname: string
-  security_level: SecurityLevel
+  security_level: SecurityLevel | null
   verified_score: number
   answered_count: number
   score_reached_at: string

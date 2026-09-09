@@ -12,6 +12,7 @@ import type {
   PrizeStatus,
   RankingEntry,
 } from "../../admin/rankingTypes"
+import { SECURITY_LEVEL_META } from "../../game/securityLevel"
 import AdminIcon from "./AdminIcon"
 
 const PRIZE_STATUS_LABEL: Record<PrizeStatus, string> = {
@@ -146,6 +147,7 @@ export default function RankingManagement() {
       "배포",
       "요원명",
       "부서명",
+      "정보보안 등급",
       "검증 점수",
       "응답 문항",
       "소요 시간(초)",
@@ -157,6 +159,7 @@ export default function RankingManagement() {
       entry.campaignTitle,
       entry.nickname,
       entry.department,
+      SECURITY_LEVEL_META[entry.securityLevel].label,
       entry.verifiedScore,
       entry.answeredCount,
       entry.elapsedSeconds,
@@ -329,6 +332,11 @@ export default function RankingManagement() {
                     {entry.department || "부서 미입력"} ·{" "}
                     {entry.institutionName}
                   </small>
+                  <i
+                    className={`security-level-chip level-${entry.securityLevel}`}
+                  >
+                    {SECURITY_LEVEL_META[entry.securityLevel].label}
+                  </i>
                 </span>
                 <em>
                   {entry.verifiedScore} / {entry.answeredCount}

@@ -1,23 +1,52 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { AttemptSession, PublicCampaign } from "./admin/institutionTypes"
-import { EMPTY_GAME_PROGRESS, type GameProgress } from "./game/session"
+import LiveLeaderboard from "./components/LiveLeaderboard"
+import {
+  EMPTY_GAME_PROGRESS,
+  normalizeGameProgress,
+  type GameProgress,
+} from "./game/session"
+import { isSecurityLevel, type SecurityLevel } from "./game/securityLevel"
 import DesignSystemScreen from "./screens/DesignSystemScreen"
 import DepartmentScreen from "./screens/DepartmentScreen"
 import GameScreen from "./screens/GameScreen"
 import NicknameScreen from "./screens/NicknameScreen"
 import OnboardingScreen from "./screens/OnboardingScreen"
 import ResultScreen from "./screens/ResultScreen"
+import SecurityLevelScreen from "./screens/SecurityLevelScreen"
 import TitleScreen from "./screens/TitleScreen"
 
-type Screen = "title" | "nickname" | "department" | "story" | "game" | "result" | "locked"
+type Screen = "title" | "nickname" | "department" | "security-level" | "story" | "game" | "result" | "locked"
 
 const NICKNAME_STORAGE_KEY = "cyber-quest-nickname"
 const DEPARTMENT_STORAGE_KEY = "cyber-quest-department"
+const SECURITY_LEVEL_STORAGE_KEY = "cyber-quest-security-level"
+const PROGRESS_CACHE_PREFIX = "cyber-quest-progress"
 const AdminScreen = lazy(() => import("./screens/AdminScreen"))
 const CAMPAIGN_TOKEN = new URLSearchParams(window.location.search).get(
   "campaign",
 )
 const loadAttemptApi = () => import("./admin/institutionRepository")
+
+function progressCacheKey(attemptId: string) {
+  return `${PROGRESS_CACHE_PREFIX}:${attemptId}`
+}
+
+function readCachedProgress(session: AttemptSession) {
+  const raw = window.localStorage.getItem(progressCacheKey(session.attemptId))
+  if (!raw || !session.resumeToken) return null
+  try {
+    const cached = JSON.parse(raw) as {
+      resumeToken?: unknown
+      progress?: Record<string, unknown>
+    }
+    return cached.resumeToken === session.resumeToken
+      ? (cached.progress ?? null)
+      : null
+  } catch {
+    return null
+  }
+}
 
 export default function App() {
   const showAdmin = window.location.pathname.startsWith("/admin")
@@ -31,6 +60,11 @@ export default function App() {
   const [department, setDepartment] = useState(
     () => window.localStorage.getItem(DEPARTMENT_STORAGE_KEY) ?? "",
   )
+  const [participantCode, setParticipantCode] = useState("")
+  const [securityLevel, setSecurityLevel] = useState<SecurityLevel>(() => {
+    const saved = window.localStorage.getItem(SECURITY_LEVEL_STORAGE_KEY)
+    return isSecurityLevel(saved) ? saved : "beginner"
+  })
   const [score, setScore] = useState(0)
   const [gameKey, setGameKey] = useState(0)
   const [hasGameSession, setHasGameSession] = useState(false)
@@ -68,6 +102,32 @@ export default function App() {
     [],
   )
 
+  useEffect(() => {
+    if (!attemptSession || attemptSession.status !== "in_progress") return
+    const flushProgress = () => {
+      if (saveTimer.current !== null) {
+        window.clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      void loadAttemptApi()
+        .then((api) =>
+          api.saveAttemptProgress(attemptSession, {
+            ...latestProgress.current,
+          }),
+        )
+        .catch(() => undefined)
+    }
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") flushProgress()
+    }
+    window.addEventListener("pagehide", flushProgress)
+    document.addEventListener("visibilitychange", flushWhenHidden)
+    return () => {
+      window.removeEventListener("pagehide", flushProgress)
+      document.removeEventListener("visibilitychange", flushWhenHidden)
+    }
+  }, [attemptSession])
+
   const startGame = () => {
     setGameKey((value) => value + 1)
     setHasGameSession(true)
@@ -95,6 +155,7 @@ export default function App() {
         throw error
       }
       resultScore = result?.verified_score ?? finalScore
+      window.localStorage.removeItem(progressCacheKey(attemptSession.attemptId))
       setAttemptSession((current) =>
         current
           ? {
@@ -118,27 +179,45 @@ export default function App() {
     setScreen("department")
   }
 
-  const confirmDepartment = async (
+  const confirmDepartment = (
     departmentName: string,
-    participantCode: string,
+    nextParticipantCode: string,
   ) => {
     setDepartment(departmentName)
     window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, departmentName)
+    setParticipantCode(nextParticipantCode)
+    setScreen("security-level")
+  }
+
+  const confirmSecurityLevel = async (nextLevel: SecurityLevel) => {
+    setSecurityLevel(nextLevel)
+    window.localStorage.setItem(SECURITY_LEVEL_STORAGE_KEY, nextLevel)
     if (CAMPAIGN_TOKEN) {
       const { startOrResumeAttempt } = await loadAttemptApi()
       const session = await startOrResumeAttempt(
         CAMPAIGN_TOKEN,
         participantCode,
         nickname,
-        departmentName,
+        department,
+        nextLevel,
       )
       setAttemptSession(session)
+      setSecurityLevel(session.securityLevel)
+      window.localStorage.setItem(
+        SECURITY_LEVEL_STORAGE_KEY,
+        session.securityLevel,
+      )
       if (session.status !== "in_progress") {
         setScore(session.verifiedScore)
         setScreen("locked")
         return
       }
-      latestProgress.current = (session.state as unknown as GameProgress)
+      const cachedProgress = readCachedProgress(session)
+      latestProgress.current = {
+        ...normalizeGameProgress(cachedProgress ?? session.state),
+        score: session.verifiedScore,
+        answeredCount: session.answeredCount,
+      }
       if (session.answeredCount > 0) {
         setGameKey((value) => value + 1)
         setHasGameSession(true)
@@ -172,6 +251,13 @@ export default function App() {
     (progress: GameProgress) => {
       latestProgress.current = progress
       if (!attemptSession || attemptSession.status !== "in_progress") return
+      window.localStorage.setItem(
+        progressCacheKey(attemptSession.attemptId),
+        JSON.stringify({
+          resumeToken: attemptSession.resumeToken,
+          progress,
+        }),
+      )
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
       saveTimer.current = window.setTimeout(() => {
         loadAttemptApi()
@@ -197,11 +283,21 @@ export default function App() {
       }
       try {
         const api = await loadAttemptApi()
-        return await api.recordAttemptAnswer(
+        const result = await api.recordAttemptAnswer(
           attemptSession,
           questionOrdinal,
           selectedAnswer,
         )
+        setAttemptSession((current) =>
+          current
+            ? {
+                ...current,
+                verifiedScore: result.verifiedScore,
+                answeredCount: result.answeredCount,
+              }
+            : null,
+        )
+        return result
       } catch (error) {
         setSessionWarning(
           error instanceof Error
@@ -224,6 +320,12 @@ export default function App() {
         initialDepartment={department}
         campaignName={campaign?.institutionName}
         onConfirm={confirmDepartment}
+      />
+    ),
+    "security-level": (
+      <SecurityLevelScreen
+        initialLevel={securityLevel}
+        onConfirm={confirmSecurityLevel}
       />
     ),
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,
@@ -291,20 +393,39 @@ export default function App() {
     )
   }
 
+  const showLiveLeaderboard = Boolean(
+    attemptSession && campaign && CAMPAIGN_TOKEN,
+  )
+
   return (
-    <div className={`app-shell screen-${screen}`}>
+    <div
+      className={`app-shell screen-${screen} ${
+        showLiveLeaderboard ? "has-live-leaderboard" : ""
+      }`}
+    >
       {hasGameSession && (
-        <div className="game-session" hidden={screen !== "game"}>
-          <GameScreen
-            key={gameKey}
-            onFinish={finishGame}
-            onExit={goBackFromGame}
-            initialProgress={
-              attemptSession ? { ...latestProgress.current } : null
-            }
-            onProgress={attemptSession ? persistProgress : undefined}
-            onAnswer={attemptSession ? persistAnswer : undefined}
-          />
+        <div className="game-live-layout" hidden={screen !== "game"}>
+          <div className="game-session">
+            <GameScreen
+              key={gameKey}
+              onFinish={finishGame}
+              onExit={goBackFromGame}
+              initialProgress={
+                attemptSession ? { ...latestProgress.current } : null
+              }
+              onProgress={attemptSession ? persistProgress : undefined}
+              onAnswer={attemptSession ? persistAnswer : undefined}
+            />
+          </div>
+          {attemptSession && campaign && CAMPAIGN_TOKEN && (
+            <LiveLeaderboard
+              campaignId={campaign.campaignId}
+              publicToken={CAMPAIGN_TOKEN}
+              currentAttemptId={attemptSession.attemptId}
+              currentNickname={attemptSession.nickname}
+              currentSecurityLevel={attemptSession.securityLevel}
+            />
+          )}
         </div>
       )}
       {sessionWarning && (

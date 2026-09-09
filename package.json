@@ -12,6 +12,7 @@
     "server:production": "node server/index.mjs",
     "server:hash-password": "node server/scripts/hash-password.mjs",
     "server:test": "node --test server/*.test.mjs",
+    "load-test:realtime": "node scripts/realtime-load-test.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

@@ -1,6 +1,9 @@
 import { isAdminDemoMode, supabase } from "../lib/supabase"
 import { isFallbackAnswerCorrect } from "../data/questionAnswers"
+import { announceLeaderboardChange } from "../game/liveLeaderboard"
+import { isSecurityLevel, type SecurityLevel } from "../game/securityLevel"
 import type {
+  AnswerVerification,
   AttemptSession,
   AttemptSummary,
   Campaign,
@@ -23,6 +26,9 @@ interface CompleteAttemptResult {
 interface AnswerResult {
   accepted: boolean
   correct: boolean
+  selected_answer: number
+  verified_score: number
+  answered_count: number
 }
 
 function requireSupabase() {
@@ -291,19 +297,28 @@ export async function startOrResumeAttempt(
   participantCode: string,
   nickname: string,
   department: string,
+  securityLevel: SecurityLevel,
 ): Promise<AttemptSession> {
   if (isAdminDemoMode) {
     const campaign = await getPublicCampaign(publicToken)
     const key = demoIdentifier(publicToken, participantCode)
     const sessions = demoSessions()
     const existing = sessions[key]
-    if (existing) return existing
+    if (existing) {
+      return {
+        ...existing,
+        securityLevel: isSecurityLevel(existing.securityLevel)
+          ? existing.securityLevel
+          : securityLevel,
+      }
+    }
     const session: AttemptSession = {
       attemptId: crypto.randomUUID(),
       resumeToken: crypto.randomUUID(),
       status: "in_progress",
       nickname,
       department,
+      securityLevel,
       institutionName: campaign.institutionName,
       campaignTitle: campaign.campaignTitle,
       requiredQuestionCount: campaign.requiredQuestionCount,
@@ -342,6 +357,7 @@ export async function startOrResumeAttempt(
       p_participant_code: participantCode,
       p_nickname: nickname,
       p_department: department,
+      p_security_level: securityLevel,
     },
   )
   if (error) throw error
@@ -351,6 +367,9 @@ export async function startOrResumeAttempt(
     status: data.status,
     nickname: data.nickname,
     department: data.department,
+    securityLevel: isSecurityLevel(data.security_level)
+      ? data.security_level
+      : securityLevel,
     institutionName: data.institution_name,
     campaignTitle: data.campaign_title,
     requiredQuestionCount: data.required_question_count,
@@ -391,7 +410,7 @@ export async function recordAttemptAnswer(
   session: AttemptSession,
   questionOrdinal: number,
   selectedAnswer: number,
-): Promise<boolean> {
+): Promise<AnswerVerification> {
   if (!session.resumeToken || session.status !== "in_progress") {
     throw new Error("진행 중인 응시 기록을 찾을 수 없습니다.")
   }
@@ -402,10 +421,18 @@ export async function recordAttemptAnswer(
     )
     const attemptAnswers = answers[session.attemptId] ?? {}
     if (String(questionOrdinal) in attemptAnswers) {
-      return isFallbackAnswerCorrect(
-        questionOrdinal,
-        attemptAnswers[String(questionOrdinal)],
-      )
+      const storedAnswer = attemptAnswers[String(questionOrdinal)]
+      const answeredCount = Object.keys(attemptAnswers).length
+      const verifiedScore = Object.entries(attemptAnswers).filter(
+        ([ordinal, answer]) => isFallbackAnswerCorrect(Number(ordinal), answer),
+      ).length
+      return {
+        accepted: false,
+        correct: isFallbackAnswerCorrect(questionOrdinal, storedAnswer),
+        selectedAnswer: storedAnswer,
+        verifiedScore,
+        answeredCount,
+      }
     }
     attemptAnswers[String(questionOrdinal)] = selectedAnswer
     answers[session.attemptId] = attemptAnswers
@@ -427,7 +454,15 @@ export async function recordAttemptAnswer(
       answeredCount,
       verifiedScore,
     }))
-    return isFallbackAnswerCorrect(questionOrdinal, selectedAnswer)
+    const result = {
+      accepted: true,
+      correct: isFallbackAnswerCorrect(questionOrdinal, selectedAnswer),
+      selectedAnswer,
+      verifiedScore,
+      answeredCount,
+    }
+    announceLeaderboardChange()
+    return result
   }
   const { data, error } = await requireSupabase().rpc("record_attempt_answer", {
     p_attempt_id: session.attemptId,
@@ -436,7 +471,16 @@ export async function recordAttemptAnswer(
     p_selected_answer: selectedAnswer,
   })
   if (error) throw error
-  return Boolean((data as AnswerResult | null)?.correct)
+  const result = data as AnswerResult | null
+  if (!result) throw new Error("답안 검증 결과를 받지 못했습니다.")
+  announceLeaderboardChange()
+  return {
+    accepted: result.accepted,
+    correct: result.correct,
+    selectedAnswer: result.selected_answer,
+    verifiedScore: result.verified_score,
+    answeredCount: result.answered_count,
+  }
 }
 
 export async function completeAttempt(

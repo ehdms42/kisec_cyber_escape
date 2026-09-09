@@ -180,9 +180,7 @@ export default function RankingManagement() {
       <section className="admin-page-heading ranking-heading">
         <div>
           <h2>탈출 순위</h2>
-          <p>
-            서버 검증 점수, 소요 시간, 완료 순서로 배포별 순위를 계산합니다.
-          </p>
+          <p>서버 검증 점수와 해당 점수에 도달한 시각으로 순위를 계산합니다.</p>
         </div>
         <div>
           <select
@@ -223,8 +221,7 @@ export default function RankingManagement() {
       <section className="ranking-rule-note">
         <b>순위 기준</b>
         <span>① 정답 수가 많은 순</span>
-        <span>② 소요 시간이 짧은 순</span>
-        <span>③ 먼저 탈출한 순</span>
+        <span>② 같은 점수에 먼저 도달한 순</span>
       </section>
 
       <section className="ranking-summary-grid">

@@ -1,3 +1,5 @@
+import type { SecurityLevel } from "../game/securityLevel"
+
 export type AttemptStatus = "in_progress" | "completed" | "voided"
 
 export interface Institution {
@@ -50,6 +52,7 @@ export interface AttemptSession {
   status: AttemptStatus
   nickname: string
   department: string
+  securityLevel: SecurityLevel
   institutionName: string
   campaignTitle: string
   requiredQuestionCount: number
@@ -58,4 +61,12 @@ export interface AttemptSession {
   answeredCount: number
   startedAt: string
   completedAt: string | null
+}
+
+export interface AnswerVerification {
+  accepted: boolean
+  correct: boolean
+  selectedAnswer: number
+  verifiedScore: number
+  answeredCount: number
 }

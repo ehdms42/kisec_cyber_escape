@@ -17,6 +17,11 @@ import {
   type GameProgress,
 } from "../game/session"
 import type { Question } from "../data/questions"
+import type { AnswerVerification } from "../admin/institutionTypes"
+import {
+  recommendedLevelForQuestion,
+  SECURITY_LEVEL_META,
+} from "../game/securityLevel"
 
 interface GameScreenProps {
   onFinish: (score: number) => void | Promise<void>
@@ -26,7 +31,7 @@ interface GameScreenProps {
   onAnswer?: (
     questionOrdinal: number,
     selectedAnswer: number,
-  ) => boolean | Promise<boolean>
+  ) => boolean | AnswerVerification | Promise<boolean | AnswerVerification>
 }
 
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
@@ -222,17 +227,26 @@ export default function GameScreen({
     setAnswerPending(true)
     setAnswerSubmitError("")
     try {
-      const correct = onAnswer
+      const verification = onAnswer
         ? await onAnswer(question.id, index)
         : (await import("../data/questionAnswers")).isFallbackAnswerCorrect(
             question.id,
             index,
           )
       if (answerRequestRef.current !== request) return
-      setSelectedAnswer(index)
+      const correct =
+        typeof verification === "boolean" ? verification : verification.correct
+      setSelectedAnswer(
+        typeof verification === "boolean" ? index : verification.selectedAnswer,
+      )
       setAnswerCorrect(correct)
-      setAnsweredCount((value) => value + 1)
-      if (correct) setScore((value) => value + 1)
+      if (typeof verification === "boolean") {
+        setAnsweredCount((value) => value + 1)
+        if (correct) setScore((value) => value + 1)
+      } else {
+        setAnsweredCount(verification.answeredCount)
+        setScore(verification.verifiedScore)
+      }
     } catch (error) {
       if (answerRequestRef.current !== request) return
       setAnswerSubmitError(
@@ -646,6 +660,14 @@ export default function GameScreen({
           {phase === "quiz" && question && questionParts && (
             <section className="object-quiz-panel">
               <div className="question-progress">
+                <span>
+                  {
+                    SECURITY_LEVEL_META[
+                      recommendedLevelForQuestion(question.id)
+                    ].label
+                  }{" "}
+                  추천
+                </span>
                 <b>
                   문항 {questionStep + 1} / {activePuzzle.questions.length}
                 </b>

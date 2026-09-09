@@ -151,6 +151,19 @@ export default function AdminScreen() {
   const [importOpen, setImportOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
+  useEffect(() => {
+    const path = window.location.pathname
+    if (path.startsWith("/admin/rankings")) {
+      document.title = "탈출 순위 | CYBER QUEST"
+    } else if (path.startsWith("/admin/institutions")) {
+      document.title = "기관 · 응시 | CYBER QUEST"
+    } else if (accessState === "login" || accessState === "setup") {
+      document.title = "관리자 로그인 | CYBER QUEST"
+    } else {
+      document.title = "문제 관리 | CYBER QUEST"
+    }
+  }, [accessState])
+
   const verifyAdmin = useCallback(async () => {
     setAccessState("checking")
     try {

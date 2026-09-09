@@ -1,6 +1,6 @@
 {
-  "name": "사이버 퀘스트 | 정보보안 방탈출",
-  "short_name": "사이버 퀘스트",
+  "name": "CYBER QUEST | 정보보안 방탈출",
+  "short_name": "CYBER QUEST",
   "description": "보안 문제를 해결하고 잠긴 서버실을 탈출하는 사이버보안 방탈출 게임",
   "start_url": "/",
   "display": "standalone",

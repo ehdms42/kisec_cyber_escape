@@ -229,20 +229,14 @@ export default function QuestionManagement() {
                   <strong>{question.prompt}</strong>
                 </button>
                 <span>{question.options.length}개</span>
-                <i
-                  className={`admin-status-badge status-${
-                    question.status === "published" ? "open" : "draft"
-                  }`}
-                >
+                <i className={question.status}>
                   {question.status === "published" ? "공개" : "초안"}
                 </i>
                 <div className="question-row-actions">
                   <button type="button" onClick={() => openQuestion(question)}>
-                    <AdminIcon name="edit" />
                     수정
                   </button>
                   <button type="button" onClick={() => handleDelete(question)}>
-                    <AdminIcon name="delete" />
                     삭제
                   </button>
                 </div>

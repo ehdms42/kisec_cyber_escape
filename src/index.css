@@ -4433,12 +4433,12 @@ button:focus-visible {
 .admin-stat-grid {
   grid-template-columns: repeat(3, 1fr);
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
   gap: 0;
   margin-bottom: 24px;
   display: grid;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
   overflow: hidden;
 }
 
@@ -4472,9 +4472,9 @@ button:focus-visible {
 .admin-question-section,
 .admin-document-section {
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
   overflow: hidden;
 }
 
@@ -5891,12 +5891,12 @@ button:focus-visible {
 .institution-summary-grid {
   grid-template-columns: repeat(4, 1fr);
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
   gap: 0;
   margin-bottom: 24px;
   display: grid;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
   overflow: hidden;
 }
 
@@ -6374,12 +6374,12 @@ button:focus-visible {
 .ranking-summary-grid {
   grid-template-columns: repeat(4, 1fr);
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
   gap: 0;
   margin-bottom: 24px;
   display: grid;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
   overflow: hidden;
 }
 
@@ -6685,10 +6685,10 @@ button:focus-visible {
 .institution-summary-grid,
 .ranking-summary-grid {
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
   gap: 0;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
   overflow: hidden;
 }
 
@@ -7040,7 +7040,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 6px;
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 16px;
   padding: 18px 20px;
   display: flex;
@@ -7053,7 +7053,7 @@ button:focus-visible {
 }
 
 .dashboard-stat-card > strong {
-  color: #1c2b3f;
+  color: #2e2a24;
   font: 700 23px/1.15 var(--ui-font-number);
 }
 
@@ -7065,11 +7065,11 @@ button:focus-visible {
 
 .dashboard-card {
   background: #fff;
-  border: 1px solid #e7edf6;
+  border: 1px solid #e9e6e1;
   border-radius: 18px;
   display: block;
   overflow: hidden;
-  box-shadow: 0 2px 10px #12439c0c;
+  box-shadow: 0 2px 10px #8a7a5c10;
 }
 
 .dashboard-card > header {
@@ -7194,7 +7194,7 @@ button:focus-visible {
 }
 
 .dashboard-accuracy-value {
-  color: #1c2b3f;
+  color: #2e2a24;
   text-align: right;
   font: 800 12.5px var(--ui-font-number);
 }
@@ -7359,28 +7359,12 @@ button:focus-visible {
   display: inline-flex;
 }
 
-.question-row > i::before {
-  content: "";
-  border-radius: 50%;
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-}
-
 .question-row > i.published {
   color: var(--blue-60);
 }
 
-.question-row > i.published::before {
-  background: var(--blue-50);
-}
-
 .question-row > i.draft {
   color: var(--ui-text-muted);
-}
-
-.question-row > i.draft::before {
-  background: #c3cedc;
 }
 
 .question-row-actions {
@@ -7451,28 +7435,12 @@ button:focus-visible {
   display: inline-flex;
 }
 
-.dashboard-card-row > i::before {
-  content: "";
-  border-radius: 50%;
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-}
-
 .dashboard-card-row > i.published {
   color: var(--blue-60);
 }
 
-.dashboard-card-row > i.published::before {
-  background: var(--blue-50);
-}
-
 .dashboard-card-row > i.draft {
   color: var(--ui-text-muted);
-}
-
-.dashboard-card-row > i.draft::before {
-  background: #c3cedc;
 }
 
 .dashboard-card-row-action {
@@ -7558,36 +7526,16 @@ button:focus-visible {
   display: inline-flex;
 }
 
-.attempt-row > i::before {
-  content: "";
-  border-radius: 50%;
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-}
-
 .attempt-row > i.in_progress {
   color: var(--blue-60);
-}
-
-.attempt-row > i.in_progress::before {
-  background: var(--blue-50);
 }
 
 .attempt-row > i.completed {
   color: #2f7a4d;
 }
 
-.attempt-row > i.completed::before {
-  background: #3fa566;
-}
-
 .attempt-row > i.voided {
   color: #ad5360;
-}
-
-.attempt-row > i.voided::before {
-  background: #c96471;
 }
 
 .attempt-row > b {

@@ -8,3 +8,4 @@ tmp/
 .env.server
 server/.data/
 *.log
+docs/reports/

@@ -1,4 +1,4 @@
-export type AdminIconName = "questions" | "institutions" | "ranking" | "game" | "logout" | "upload" | "plus" | "sync" | "edit" | "delete" | "campaign" | "download" | "award" | "dashboard" | "accounts" | "logs" | "monitor" | "qrcode" | "participants" | "settings"
+export type AdminIconName = "questions" | "institutions" | "ranking" | "game" | "logout" | "upload" | "plus" | "sync" | "edit" | "delete" | "campaign" | "download" | "award" | "dashboard" | "accounts" | "logs" | "monitor" | "qrcode" | "participants" | "settings" | "calendar" | "percent" | "timer" | "lightbulb" | "trophy" | "flag" | "alert"
 
 export default function AdminIcon({ name }: { name: AdminIconName }) {
   return (
@@ -65,6 +65,25 @@ export default function AdminIcon({ name }: { name: AdminIconName }) {
       )}
       {name === "settings" && (
         <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 13.5a7.4 7.4 0 0 0 0-3l1.9-1.3-2-3.4-2.2.7a7.3 7.3 0 0 0-2.6-1.5L14 2.5h-4l-.5 2.5a7.3 7.3 0 0 0-2.6 1.5l-2.2-.7-2 3.4L4.6 10.5a7.4 7.4 0 0 0 0 3L2.7 14.8l2 3.4 2.2-.7a7.3 7.3 0 0 0 2.6 1.5l.5 2.5h4l.5-2.5a7.3 7.3 0 0 0 2.6-1.5l2.2.7 2-3.4z" />
+      )}
+      {name === "calendar" && (
+        <path d="M4.5 5.5h15v15h-15zM4.5 9.5h15M8 3v5M16 3v5M8 13.3h.01M12 13.3h.01M16 13.3h.01M8 17h.01M12 17h.01" />
+      )}
+      {name === "percent" && (
+        <path d="M18 6 6 18M7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM16.5 18a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+      )}
+      {name === "timer" && (
+        <path d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 9v5l3.3 2M10 2.5h4" />
+      )}
+      {name === "lightbulb" && (
+        <path d="M9 18h6M9.8 21h4.4M8 14.5A5 5 0 1 1 16 14.5c-.9.9-1.5 1.7-1.6 2.6H9.6c-.1-.9-.7-1.7-1.6-2.6Z" />
+      )}
+      {name === "trophy" && (
+        <path d="M7 4h10v4a5 5 0 0 1-10 0zM7 5H4v1a4 4 0 0 0 3.5 4M17 5h3v1a4 4 0 0 1-3.5 4M10 16.5V19M14 16.5V19M8 21h8" />
+      )}
+      {name === "flag" && <path d="M6 21V4M6 5h11l-2.5 3.5L17 12H6" />}
+      {name === "alert" && (
+        <path d="M12 3 2 20h20L12 3ZM12 10.5v4M12 17.2h.01" />
       )}
     </svg>
   )

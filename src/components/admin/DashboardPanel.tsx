@@ -1,11 +1,50 @@
 import { useCallback, useEffect, useState } from "react"
 import { getDashboardSummary } from "../../admin/dashboardRepository"
-import type { DashboardSummary } from "../../admin/dashboardRepository"
+import type {
+  DashboardQuestionAccuracy,
+  DashboardSummary,
+} from "../../admin/dashboardRepository"
+import AdminIcon, { type AdminIconName } from "./AdminIcon"
 
 function formatMinutesSeconds(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = Math.round(totalSeconds % 60)
   return `${minutes}분 ${seconds}초`
+}
+
+interface StatCardProps {
+  icon: AdminIconName
+  accent: "blue" | "green" | "amber" | "purple"
+  label: string
+  value: string | number
+}
+
+function StatCard({ icon, accent, label, value }: StatCardProps) {
+  return (
+    <article className={`dashboard-stat-card accent-${accent}`}>
+      <span className="dashboard-stat-icon">
+        <AdminIcon name={icon} />
+      </span>
+      <span className="dashboard-stat-body">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </span>
+    </article>
+  )
+}
+
+function AccuracyRow({ item }: { item: DashboardQuestionAccuracy }) {
+  return (
+    <div className="dashboard-accuracy-row">
+      <b>{item.ordinal}</b>
+      <span className="dashboard-accuracy-category">{item.category}</span>
+      <span className="dashboard-accuracy-bar">
+        <span style={{ width: `${Math.min(100, item.accuracyRate)}%` }} />
+      </span>
+      <span className="dashboard-accuracy-value">{item.accuracyRate}%</span>
+      <span className="dashboard-accuracy-count">{item.attempts}명 응답</span>
+    </div>
+  )
 }
 
 export default function DashboardPanel() {
@@ -31,7 +70,7 @@ export default function DashboardPanel() {
   useEffect(() => void refresh(), [refresh])
 
   return (
-    <main className="admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
           <h2>대시보드</h2>
@@ -39,6 +78,7 @@ export default function DashboardPanel() {
         </div>
         <div>
           <button type="button" onClick={() => void refresh()}>
+            <AdminIcon name="sync" />
             새로고침
           </button>
         </div>
@@ -60,147 +100,160 @@ export default function DashboardPanel() {
       ) : (
         <>
           {summary.degraded && (
-            <p className="ranking-rule-note">
+            <p className="dashboard-degraded-note">
               로컬 데이터 모드에서는 참가자·응시 관련 일부 통계가 표시되지
               않습니다. (Supabase 연결 필요)
             </p>
           )}
 
-          <section className="admin-stat-grid" aria-label="세션 현황">
-            <article>
-              <span>진행 중인 세션</span>
-              <strong>{summary.sessionsInProgress}</strong>
-            </article>
-            <article>
-              <span>오늘 예정 세션</span>
-              <strong>{summary.sessionsToday}</strong>
-            </article>
-            <article>
-              <span>전체 참가자</span>
-              <strong>{summary.totalParticipants}</strong>
-            </article>
-          </section>
+          <div className="dashboard-stat-row" aria-label="세션 현황">
+            <StatCard
+              icon="monitor"
+              accent="blue"
+              label="진행 중인 세션"
+              value={summary.sessionsInProgress}
+            />
+            <StatCard
+              icon="calendar"
+              accent="purple"
+              label="오늘 예정 세션"
+              value={summary.sessionsToday}
+            />
+            <StatCard
+              icon="participants"
+              accent="blue"
+              label="전체 참가자"
+              value={summary.totalParticipants}
+            />
+          </div>
 
-          <section className="admin-stat-grid" aria-label="운영 지표">
-            <article>
-              <span>완료율</span>
-              <strong>{summary.completionRate}%</strong>
-            </article>
-            <article>
-              <span>평균 탈출 시간</span>
-              <strong>
-                {formatMinutesSeconds(summary.averageElapsedSeconds)}
-              </strong>
-            </article>
-            <article>
-              <span>힌트 사용 횟수</span>
-              <strong>{summary.hintUsageTotal}</strong>
-            </article>
-          </section>
+          <div className="dashboard-stat-row" aria-label="운영 지표">
+            <StatCard
+              icon="percent"
+              accent="green"
+              label="완료율"
+              value={`${summary.completionRate}%`}
+            />
+            <StatCard
+              icon="timer"
+              accent="amber"
+              label="평균 탈출 시간"
+              value={formatMinutesSeconds(summary.averageElapsedSeconds)}
+            />
+            <StatCard
+              icon="lightbulb"
+              accent="amber"
+              label="힌트 사용 횟수"
+              value={summary.hintUsageTotal}
+            />
+          </div>
 
-          <div className="institution-admin-grid">
-            <section className="admin-question-section institution-list-panel">
+          <div className="dashboard-panel-grid">
+            <section className="dashboard-card">
               <header>
+                <AdminIcon name="trophy" />
                 <div>
                   <h3>현재 1위</h3>
+                  <small>진행 중인 세션 기준</small>
                 </div>
               </header>
               {summary.currentLeaders.length === 0 ? (
-                <p className="admin-empty">진행 중인 세션이 없습니다.</p>
+                <p className="dashboard-empty-row">
+                  진행 중인 세션이 없습니다.
+                </p>
               ) : (
-                summary.currentLeaders.map((leader) => (
-                  <article key={leader.campaignId}>
-                    <span>
-                      <strong>{leader.nickname}</strong>
-                      <small>
-                        {leader.institutionName} · {leader.campaignTitle}
-                      </small>
-                    </span>
-                    <i className="active">{leader.verifiedScore}점</i>
-                  </article>
-                ))
+                <div className="dashboard-card-rows">
+                  {summary.currentLeaders.map((leader) => (
+                    <div className="dashboard-card-row" key={leader.campaignId}>
+                      <span className="dashboard-card-row-main">
+                        <strong>{leader.nickname}</strong>
+                        <small>
+                          {leader.institutionName} · {leader.campaignTitle}
+                        </small>
+                      </span>
+                      <b>{leader.verifiedScore}점</b>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
 
-            <section className="admin-question-section institution-list-panel">
+            <section className="dashboard-card">
               <header>
+                <AdminIcon name="flag" />
                 <div>
                   <h3>최근 종료된 세션</h3>
+                  <small>최신순 5건</small>
                 </div>
               </header>
               {summary.recentCompletedSessions.length === 0 ? (
-                <p className="admin-empty">최근 종료된 세션이 없습니다.</p>
+                <p className="dashboard-empty-row">
+                  최근 종료된 세션이 없습니다.
+                </p>
               ) : (
-                summary.recentCompletedSessions.map((session) => (
-                  <article key={session.campaignId}>
-                    <span>
-                      <strong>{session.campaignTitle}</strong>
-                      <small>{session.institutionName}</small>
-                    </span>
-                    <i className="inactive">
-                      {new Date(session.endedAt).toLocaleDateString("ko-KR")}
-                    </i>
-                  </article>
-                ))
+                <div className="dashboard-card-rows">
+                  {summary.recentCompletedSessions.map((session) => (
+                    <div
+                      className="dashboard-card-row"
+                      key={session.campaignId}
+                    >
+                      <span className="dashboard-card-row-main">
+                        <strong>{session.campaignTitle}</strong>
+                        <small>{session.institutionName}</small>
+                      </span>
+                      <time dateTime={session.endedAt}>
+                        {new Date(session.endedAt).toLocaleDateString("ko-KR")}
+                      </time>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
           </div>
 
-          <section className="admin-question-section institution-list-panel">
+          <section className="dashboard-card">
             <header>
+              <AdminIcon name="alert" />
               <div>
                 <h3>진행 지연 참가자</h3>
                 <small>15분 이상 응답이 없는 진행 중 참가자</small>
               </div>
             </header>
             {summary.stalledAttempts.length === 0 ? (
-              <p className="admin-empty">지연된 참가자가 없습니다.</p>
+              <p className="dashboard-empty-row">지연된 참가자가 없습니다.</p>
             ) : (
-              summary.stalledAttempts.map((attempt) => (
-                <article key={attempt.attemptId}>
-                  <span>
-                    <strong>{attempt.nickname}</strong>
-                  </span>
-                  <i className="inactive">
-                    {new Date(attempt.lastSeenAt).toLocaleTimeString("ko-KR")}
-                  </i>
-                </article>
-              ))
+              <div className="dashboard-card-rows">
+                {summary.stalledAttempts.map((attempt) => (
+                  <div className="dashboard-card-row" key={attempt.attemptId}>
+                    <span className="dashboard-card-row-main">
+                      <strong>{attempt.nickname}</strong>
+                    </span>
+                    <time dateTime={attempt.lastSeenAt}>
+                      {new Date(attempt.lastSeenAt).toLocaleTimeString("ko-KR")}
+                    </time>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 
-          <section className="admin-question-section">
+          <section className="dashboard-card">
             <header>
+              <AdminIcon name="questions" />
               <div>
                 <h3>문항별 정답률</h3>
+                <small>공개된 문제 전체</small>
               </div>
             </header>
-            <div className="admin-question-table">
-              <div className="admin-table-head" aria-hidden="true">
-                <span>번호</span>
-                <span>분류</span>
-                <span>응답 수</span>
-                <span>정답률</span>
+            {summary.questionAccuracy.length === 0 ? (
+              <p className="dashboard-empty-row">집계된 응답이 없습니다.</p>
+            ) : (
+              <div className="dashboard-accuracy-list">
+                {summary.questionAccuracy.map((item) => (
+                  <AccuracyRow item={item} key={item.ordinal} />
+                ))}
               </div>
-              {summary.questionAccuracy.length === 0 ? (
-                <p className="admin-empty">집계된 응답이 없습니다.</p>
-              ) : (
-                summary.questionAccuracy.map((item) => (
-                  <article key={item.ordinal}>
-                    <b>{item.ordinal}</b>
-                    <span>{item.category}</span>
-                    <span>{item.attempts}</span>
-                    <i
-                      className={
-                        item.accuracyRate >= 60 ? "published" : "draft"
-                      }
-                    >
-                      {item.accuracyRate}%
-                    </i>
-                  </article>
-                ))
-              )}
-            </div>
+            )}
           </section>
         </>
       )}

@@ -6,6 +6,7 @@ import {
   type AdminAccount,
 } from "../../admin/accountRepository"
 import type { AdminRole } from "../../admin/serverApi"
+import AdminIcon from "./AdminIcon"
 
 interface RoleOption {
   value: AdminRole
@@ -69,7 +70,7 @@ export default function AccountManagement() {
   }
 
   return (
-    <main className="admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
           <h2>관리자 계정</h2>
@@ -102,43 +103,54 @@ export default function AccountManagement() {
         </button>
       )}
 
-      <section className="admin-question-section institution-list-panel">
+      <section className="dashboard-card">
         <header>
+          <AdminIcon name="accounts" />
           <div>
             <h3>계정 목록</h3>
+            <small>{accounts.length}개 등록됨</small>
           </div>
         </header>
         {loading ? (
-          <p className="admin-empty">불러오는 중…</p>
+          <p className="dashboard-empty-row">불러오는 중…</p>
         ) : accounts.length === 0 ? (
-          <p className="admin-empty">추가 관리자 계정이 없습니다.</p>
+          <p className="dashboard-empty-row">추가 관리자 계정이 없습니다.</p>
         ) : (
-          accounts.map((account) => (
-            <article key={account.id}>
-              <span>
-                <strong>{account.displayName}</strong>
-                <small>
-                  @{account.loginId} ·{" "}
-                  {account.roles.map((role) => ROLE_LABEL[role]).join(", ")}
-                </small>
-              </span>
-              <i className={account.active ? "active" : "inactive"}>
-                {account.active ? "활성" : "비활성"}
-              </i>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingAccount(account)
-                  setFormOpen(true)
-                }}
-              >
-                설정
-              </button>
-              <button type="button" onClick={() => toggleActive(account)}>
-                {account.active ? "비활성화" : "활성화"}
-              </button>
-            </article>
-          ))
+          <div className="dashboard-card-rows">
+            {accounts.map((account) => (
+              <div className="dashboard-card-row" key={account.id}>
+                <span className="dashboard-card-row-main">
+                  <strong>{account.displayName}</strong>
+                  <small>
+                    @{account.loginId} ·{" "}
+                    {account.roles.map((role) => ROLE_LABEL[role]).join(", ")}
+                  </small>
+                </span>
+                <i className={account.active ? "published" : "draft"}>
+                  {account.active ? "활성" : "비활성"}
+                </i>
+                <span className="dashboard-card-row-buttons">
+                  <button
+                    type="button"
+                    className="dashboard-card-row-action"
+                    onClick={() => {
+                      setEditingAccount(account)
+                      setFormOpen(true)
+                    }}
+                  >
+                    설정
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-card-row-action"
+                    onClick={() => toggleActive(account)}
+                  >
+                    {account.active ? "비활성화" : "활성화"}
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

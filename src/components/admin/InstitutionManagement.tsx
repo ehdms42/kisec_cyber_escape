@@ -146,11 +146,11 @@ export default function InstitutionManagement() {
   }
 
   return (
-    <main className="admin-content institution-admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
-          <h2>기관 · 응시 관리</h2>
-          <p>기관별 배포 링크와 단일 응시 상태를 서버에서 관리합니다.</p>
+          <h2>기관 · 세션 관리</h2>
+          <p>기관별 배포 링크와 세션 운영 상태를 관리합니다.</p>
         </div>
         <div>
           <button
@@ -190,113 +190,129 @@ export default function InstitutionManagement() {
         </button>
       )}
 
-      <section className="institution-summary-grid">
-        <article>
+      <div className="dashboard-stat-row" aria-label="기관 현황">
+        <article className="dashboard-stat-card">
           <span>운영 기관</span>
           <strong>{institutions.filter((item) => item.active).length}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>활성 배포</span>
           <strong>{campaigns.filter((item) => item.active).length}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>진행 중</span>
           <strong>
             {attempts.filter((item) => item.status === "in_progress").length}
           </strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>완료 기록</span>
           <strong>
             {attempts.filter((item) => item.status === "completed").length}
           </strong>
         </article>
-      </section>
+      </div>
 
-      <div className="institution-admin-grid">
-        <section className="admin-question-section institution-list-panel">
+      <div className="dashboard-panel-grid">
+        <section className="dashboard-card">
           <header>
+            <AdminIcon name="institutions" />
             <div>
               <h3>기관 목록</h3>
+              <small>{institutions.length}개 등록됨</small>
             </div>
           </header>
           {loading ? (
-            <p className="admin-empty">불러오는 중…</p>
+            <p className="dashboard-empty-row">불러오는 중…</p>
           ) : institutions.length === 0 ? (
-            <p className="admin-empty">등록된 기관이 없습니다.</p>
+            <p className="dashboard-empty-row">등록된 기관이 없습니다.</p>
           ) : (
-            institutions.map((institution) => (
-              <article key={institution.id}>
-                <span>
-                  <strong>{institution.name}</strong>
-                  <small>/{institution.slug}</small>
-                </span>
-                <i className={institution.active ? "active" : "inactive"}>
-                  {institution.active ? "운영" : "중지"}
-                </i>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingInstitution(institution)
-                    setInstitutionFormOpen(true)
-                  }}
-                >
-                  설정
-                </button>
-              </article>
-            ))
-          )}
-        </section>
-
-        <section className="admin-question-section campaign-list-panel">
-          <header>
-            <div>
-              <h3>배포 링크</h3>
-            </div>
-          </header>
-          {campaigns.length === 0 ? (
-            <p className="admin-empty">생성된 배포가 없습니다.</p>
-          ) : (
-            campaigns.map((campaign) => (
-              <article key={campaign.id}>
-                <span>
-                  <small>{campaign.institutionName}</small>
-                  <strong>{campaign.title}</strong>
-                  <code>?campaign={campaign.publicToken}</code>
-                </span>
-                <i className={campaign.active ? "active" : "inactive"}>
-                  {CAMPAIGN_STATUS_LABEL[campaign.status]}
-                </i>
-                <div>
-                  <button type="button" onClick={() => copyLink(campaign)}>
-                    링크 복사
-                  </button>
+            <div className="dashboard-card-rows">
+              {institutions.map((institution) => (
+                <div className="dashboard-card-row" key={institution.id}>
+                  <span className="dashboard-card-row-main">
+                    <strong>{institution.name}</strong>
+                    <small>/{institution.slug}</small>
+                  </span>
+                  <i className={institution.active ? "published" : "draft"}>
+                    {institution.active ? "운영" : "중지"}
+                  </i>
                   <button
                     type="button"
-                    onClick={() => setOperatingCampaign(campaign)}
-                  >
-                    운영
-                  </button>
-                  <button
-                    type="button"
+                    className="dashboard-card-row-action"
                     onClick={() => {
-                      setEditingCampaign(campaign)
-                      setCampaignFormOpen(true)
+                      setEditingInstitution(institution)
+                      setInstitutionFormOpen(true)
                     }}
                   >
                     설정
                   </button>
                 </div>
-              </article>
-            ))
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="dashboard-card">
+          <header>
+            <AdminIcon name="campaign" />
+            <div>
+              <h3>배포 링크</h3>
+              <small>{campaigns.length}개 생성됨</small>
+            </div>
+          </header>
+          {campaigns.length === 0 ? (
+            <p className="dashboard-empty-row">생성된 배포가 없습니다.</p>
+          ) : (
+            <div className="dashboard-card-rows">
+              {campaigns.map((campaign) => (
+                <div className="dashboard-card-row" key={campaign.id}>
+                  <span className="dashboard-card-row-main">
+                    <strong>{campaign.title}</strong>
+                    <small>{campaign.institutionName}</small>
+                  </span>
+                  <i className={campaign.active ? "published" : "draft"}>
+                    {CAMPAIGN_STATUS_LABEL[campaign.status]}
+                  </i>
+                  <span className="dashboard-card-row-buttons">
+                    <button
+                      type="button"
+                      className="dashboard-card-row-action"
+                      onClick={() => copyLink(campaign)}
+                    >
+                      링크 복사
+                    </button>
+                    <button
+                      type="button"
+                      className="dashboard-card-row-action"
+                      onClick={() => setOperatingCampaign(campaign)}
+                    >
+                      운영
+                    </button>
+                    <button
+                      type="button"
+                      className="dashboard-card-row-action"
+                      onClick={() => {
+                        setEditingCampaign(campaign)
+                        setCampaignFormOpen(true)
+                      }}
+                    >
+                      설정
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </section>
       </div>
 
-      <section className="admin-question-section attempt-admin-panel">
+      <section className="dashboard-card">
         <header>
+          <AdminIcon name="monitor" />
           <div>
             <h3>응시 현황</h3>
+            <small>전체 세션 통합</small>
           </div>
           <select
             aria-label="응시 상태 필터"
@@ -311,19 +327,20 @@ export default function InstitutionManagement() {
             <option value="voided">무효</option>
           </select>
         </header>
-        <div className="attempt-table">
-          <div className="attempt-table-head" aria-hidden="true">
-            <span>기관 / 참여자</span>
-            <span>상태</span>
-            <span>진행</span>
-            <span>최근 접속</span>
-            <span>예외 처리</span>
-          </div>
-          {visibleAttempts.length === 0 ? (
-            <p className="admin-empty">표시할 응시 기록이 없습니다.</p>
-          ) : (
-            visibleAttempts.map((attempt) => (
-              <article key={attempt.id}>
+
+        <div className="attempt-list-head" aria-hidden="true">
+          <span>기관 / 참여자</span>
+          <span>상태</span>
+          <span>진행</span>
+          <span>최근 접속</span>
+          <span>예외 처리</span>
+        </div>
+        {visibleAttempts.length === 0 ? (
+          <p className="dashboard-empty-row">표시할 응시 기록이 없습니다.</p>
+        ) : (
+          <div className="attempt-list-rows">
+            {visibleAttempts.map((attempt) => (
+              <article className="attempt-row" key={attempt.id}>
                 <span>
                   <small>
                     {attempt.institutionName} · {attempt.campaignTitle}
@@ -340,7 +357,7 @@ export default function InstitutionManagement() {
                 <time dateTime={attempt.lastSeenAt}>
                   {new Date(attempt.lastSeenAt).toLocaleString("ko-KR")}
                 </time>
-                <div>
+                <div className="attempt-row-actions">
                   {attempt.status !== "in_progress" && (
                     <button
                       type="button"
@@ -365,9 +382,9 @@ export default function InstitutionManagement() {
                   </button>
                 </div>
               </article>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {institutionFormOpen && (

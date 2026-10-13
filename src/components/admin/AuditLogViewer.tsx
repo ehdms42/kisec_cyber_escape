@@ -3,6 +3,7 @@ import {
   listAuditLogs,
   type AuditLogEntry,
 } from "../../admin/auditLogRepository"
+import AdminIcon from "./AdminIcon"
 
 const TARGET_TYPE_OPTIONS = [
   "question",
@@ -67,7 +68,7 @@ export default function AuditLogViewer() {
   useEffect(() => void refresh(), [refresh])
 
   return (
-    <main className="admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
           <h2>운영 로그</h2>
@@ -86,38 +87,46 @@ export default function AuditLogViewer() {
         </button>
       )}
 
-      <section className="admin-toolbar">
-        <input
-          value={adminLoginId}
-          onChange={(event) => setAdminLoginId(event.target.value)}
-          placeholder="관리자 아이디로 검색"
-          aria-label="관리자 아이디 검색"
-        />
-        <select
-          value={targetType}
-          onChange={(event) => setTargetType(event.target.value)}
-          aria-label="대상 종류 필터"
-        >
-          <option value="">전체 종류</option>
-          {TARGET_TYPE_OPTIONS.map((type) => (
-            <option value={type} key={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => void refresh()}>
-          검색
-        </button>
-      </section>
+      <section className="dashboard-card">
+        <header>
+          <AdminIcon name="logs" />
+          <div>
+            <h3>작업 기록</h3>
+            <small>최근 200건</small>
+          </div>
+        </header>
 
-      <section className="admin-question-section ranking-table-panel">
-        <div className="ranking-table audit-log-table">
-          {loading ? (
-            <p className="admin-empty">불러오는 중…</p>
-          ) : logs.length === 0 ? (
-            <p className="admin-empty">기록된 로그가 없습니다.</p>
-          ) : (
-            logs.map((log) => (
+        <div className="question-list-toolbar">
+          <input
+            value={adminLoginId}
+            onChange={(event) => setAdminLoginId(event.target.value)}
+            placeholder="관리자 아이디로 검색"
+            aria-label="관리자 아이디 검색"
+          />
+          <select
+            value={targetType}
+            onChange={(event) => setTargetType(event.target.value)}
+            aria-label="대상 종류 필터"
+          >
+            <option value="">전체 종류</option>
+            {TARGET_TYPE_OPTIONS.map((type) => (
+              <option value={type} key={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => void refresh()}>
+            검색
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="dashboard-empty-row">불러오는 중…</p>
+        ) : logs.length === 0 ? (
+          <p className="dashboard-empty-row">기록된 로그가 없습니다.</p>
+        ) : (
+          <div className="ranking-table audit-log-table">
+            {logs.map((log) => (
               <article key={log.id}>
                 <time dateTime={log.createdAt}>
                   {new Date(log.createdAt).toLocaleString("ko-KR")}
@@ -135,9 +144,9 @@ export default function AuditLogViewer() {
                   {log.reason && <small>사유: {log.reason}</small>}
                 </span>
               </article>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   )

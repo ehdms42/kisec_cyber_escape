@@ -66,7 +66,7 @@ export default function DashboardPanel() {
             </p>
           )}
 
-          <section className="admin-stat-grid" aria-label="핵심 현황">
+          <section className="admin-stat-grid" aria-label="세션 현황">
             <article>
               <span>진행 중인 세션</span>
               <strong>{summary.sessionsInProgress}</strong>
@@ -79,6 +79,9 @@ export default function DashboardPanel() {
               <span>전체 참가자</span>
               <strong>{summary.totalParticipants}</strong>
             </article>
+          </section>
+
+          <section className="admin-stat-grid" aria-label="운영 지표">
             <article>
               <span>완료율</span>
               <strong>{summary.completionRate}%</strong>

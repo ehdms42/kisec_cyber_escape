@@ -581,7 +581,7 @@ function MonitorTab({
 
   return (
     <section className="campaign-monitor-tab">
-      <p className="ranking-rule-note">
+      <p className="dashboard-neutral-note">
         {connected
           ? "실시간 연결됨"
           : "실시간 연결 대기 중 (10초마다 새로고침)"}

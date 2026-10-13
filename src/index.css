@@ -7593,3 +7593,19 @@ button:focus-visible {
 .dashboard-card-header-trailing {
   margin-left: auto;
 }
+
+.dashboard-neutral-note {
+  color: var(--ui-text-muted);
+  background: #f7f6f3;
+  border: 1px solid #ece9e3;
+  border-radius: 12px;
+  margin: 0;
+  padding: 11px 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dashboard-neutral-note b {
+  color: #2e2a24;
+  font-weight: 700;
+}

@@ -187,8 +187,8 @@ export default function RankingManagement() {
   }
 
   return (
-    <main className="admin-content ranking-admin-content">
-      <section className="admin-page-heading ranking-heading">
+    <main className="admin-content dashboard-page">
+      <section className="admin-page-heading">
         <div>
           <h2>탈출 순위</h2>
           <p>서버 검증 점수와 해당 점수에 도달한 시각으로 순위를 계산합니다.</p>
@@ -206,7 +206,7 @@ export default function RankingManagement() {
               </option>
             ))}
           </select>
-          <label className="admin-check-row ranking-anonymize-toggle">
+          <label className="admin-check-row dashboard-card-header-trailing">
             <input
               type="checkbox"
               checked={anonymizeExport}
@@ -237,32 +237,30 @@ export default function RankingManagement() {
         </button>
       )}
 
-      <section className="ranking-rule-note">
-        <b>순위 기준</b>
-        <span>① 정답 수가 많은 순</span>
-        <span>② 같은 점수에 먼저 도달한 순</span>
-      </section>
+      <p className="dashboard-degraded-note">
+        순위 기준: ① 정답 수가 많은 순 ② 같은 점수에 먼저 도달한 순
+      </p>
 
-      <section className="ranking-summary-grid">
-        <article>
+      <div className="dashboard-stat-row" aria-label="순위 요약">
+        <article className="dashboard-stat-card">
           <span>완료 인원</span>
           <strong>{entries.length}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>평균 점수</span>
           <strong>{averageScore}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>최고 점수</span>
           <strong>{entries[0]?.verifiedScore ?? 0}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>최단 기록</span>
           <strong>
             {fastestSeconds === null ? "-" : formatDuration(fastestSeconds)}
           </strong>
         </article>
-      </section>
+      </div>
 
       {entries.length > 0 && (
         <section className="ranking-podium" aria-label="상위 3명">
@@ -282,13 +280,15 @@ export default function RankingManagement() {
         </section>
       )}
 
-      <section className="admin-question-section ranking-table-panel">
+      <section className="dashboard-card">
         <header>
+          <AdminIcon name="trophy" />
           <div>
             <h3>{selectedCampaign?.title ?? "배포를 선택해 주세요"}</h3>
+            <small>{selectedCampaign?.institutionName ?? ""}</small>
           </div>
           {award ? (
-            <div className="prize-status-control">
+            <div className="prize-status-control dashboard-card-header-trailing">
               <span>
                 수상자 <b>{award.nickname}</b>
               </span>
@@ -312,7 +312,7 @@ export default function RankingManagement() {
             </div>
           ) : (
             <button
-              className="admin-primary admin-action-with-icon"
+              className="admin-primary admin-action-with-icon dashboard-card-header-trailing"
               type="button"
               onClick={selectWinner}
               disabled={!entries.length || saving}
@@ -332,9 +332,11 @@ export default function RankingManagement() {
             <span>탈출 완료</span>
           </div>
           {loading ? (
-            <p className="admin-empty">순위를 계산하고 있습니다…</p>
+            <p className="dashboard-empty-row">순위를 계산하고 있습니다…</p>
           ) : entries.length === 0 ? (
-            <p className="admin-empty">아직 탈출을 완료한 참여자가 없습니다.</p>
+            <p className="dashboard-empty-row">
+              아직 탈출을 완료한 참여자가 없습니다.
+            </p>
           ) : (
             entries.map((entry) => (
               <article
@@ -433,11 +435,11 @@ function AttemptAnswerDetailModal({
           </button>
         </header>
         {loading ? (
-          <p className="admin-empty">불러오는 중…</p>
+          <p className="dashboard-empty-row">불러오는 중…</p>
         ) : error ? (
           <p className="admin-form-error">{error}</p>
         ) : answers.length === 0 ? (
-          <p className="admin-empty">기록된 답안이 없습니다.</p>
+          <p className="dashboard-empty-row">기록된 답안이 없습니다.</p>
         ) : (
           <div className="attempt-answer-list">
             {answers.map((answer) => (

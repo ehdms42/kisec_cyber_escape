@@ -6559,14 +6559,14 @@ button:focus-visible {
 
 .ranking-table-head {
   color: var(--ui-text-muted);
-  background: #f3f7fc;
-  border-bottom: 1px solid #dce5f0;
-  font-size: 10px;
-  font-weight: 800;
+  background: transparent;
+  border-bottom: 1px solid #eef2f8;
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 .ranking-table article {
-  border-bottom: 1px solid #e1e8f1;
+  border-bottom: 1px solid #f2f5fa;
   min-height: 62px;
 }
 
@@ -6575,12 +6575,12 @@ button:focus-visible {
 }
 
 .ranking-table article.is-top {
-  background: #f7faff;
+  background: #fafcff;
 }
 
 .ranking-table article > b {
-  color: var(--blue-70);
-  font: 800 18px var(--ui-font-number);
+  color: var(--blue-60);
+  font: 600 16px var(--ui-font-number);
 }
 
 .ranking-table article > span {
@@ -7031,7 +7031,7 @@ button:focus-visible {
 }
 
 .dashboard-stat-row {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 16px;
   display: grid;
 }
@@ -7425,4 +7425,223 @@ button:focus-visible {
   .question-row > span {
     display: none;
   }
+}
+
+/* ---- 기관·세션 탭: 대시보드 카드 패턴 재사용 --------------------------- */
+
+.dashboard-card > header > select {
+  color: var(--blue-95);
+  background: #f8fbff;
+  border: 1px solid #e0e8f2;
+  border-radius: 10px;
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.dashboard-card-row > i {
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  display: inline-flex;
+}
+
+.dashboard-card-row > i::before {
+  content: "";
+  border-radius: 50%;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+}
+
+.dashboard-card-row > i.published {
+  color: var(--blue-60);
+}
+
+.dashboard-card-row > i.published::before {
+  background: var(--blue-50);
+}
+
+.dashboard-card-row > i.draft {
+  color: var(--ui-text-muted);
+}
+
+.dashboard-card-row > i.draft::before {
+  background: #c3cedc;
+}
+
+.dashboard-card-row-action {
+  color: #285f9f;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dashboard-card-row-action:hover {
+  background: #eaf2fc;
+}
+
+.dashboard-card-row-buttons {
+  gap: 2px;
+  flex: 0 0 auto;
+  display: flex;
+}
+
+.attempt-list-head {
+  color: var(--ui-text-muted);
+  grid-template-columns: minmax(180px, 1.4fr) 80px 130px 150px 150px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #eef2f8;
+  padding: 10px 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  display: grid;
+}
+
+.attempt-row {
+  grid-template-columns: minmax(180px, 1.4fr) 80px 130px 150px 150px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #f2f5fa;
+  padding: 13px 20px;
+  display: grid;
+  transition: background-color var(--ui-transition);
+}
+
+.attempt-list-rows .attempt-row:last-child {
+  border-bottom: 0;
+}
+
+.attempt-row:hover {
+  background: #fafcff;
+}
+
+.attempt-row > span {
+  min-width: 0;
+  display: grid;
+}
+
+.attempt-row > span small {
+  color: var(--ui-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  overflow: hidden;
+}
+
+.attempt-row > span strong {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.attempt-row > i {
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  display: inline-flex;
+}
+
+.attempt-row > i::before {
+  content: "";
+  border-radius: 50%;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+}
+
+.attempt-row > i.in_progress {
+  color: var(--blue-60);
+}
+
+.attempt-row > i.in_progress::before {
+  background: var(--blue-50);
+}
+
+.attempt-row > i.completed {
+  color: #2f7a4d;
+}
+
+.attempt-row > i.completed::before {
+  background: #3fa566;
+}
+
+.attempt-row > i.voided {
+  color: #ad5360;
+}
+
+.attempt-row > i.voided::before {
+  background: #c96471;
+}
+
+.attempt-row > b {
+  color: var(--blue-60);
+  font: 600 12px var(--ui-font-number);
+}
+
+.attempt-row > time {
+  color: #67789093;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.attempt-row-actions {
+  flex-wrap: wrap;
+  gap: 4px;
+  display: flex;
+}
+
+.attempt-row-actions button {
+  color: #285f9f;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.attempt-row-actions button:hover {
+  background: #eaf2fc;
+}
+
+@media (max-width: 900px) {
+  .dashboard-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attempt-list-head {
+    display: none;
+  }
+
+  .attempt-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .attempt-row > b,
+  .attempt-row > time,
+  .attempt-row-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+.dashboard-card-header-trailing {
+  margin-left: auto;
 }

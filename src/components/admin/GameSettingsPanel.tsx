@@ -51,7 +51,7 @@ export default function GameSettingsPanel() {
   }
 
   return (
-    <main className="admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
           <h2>게임 설정</h2>
@@ -71,12 +71,9 @@ export default function GameSettingsPanel() {
       )}
 
       {loading || !value ? (
-        <p className="admin-empty">불러오는 중…</p>
+        <p className="dashboard-empty-row">불러오는 중…</p>
       ) : (
-        <form
-          className="admin-question-section game-settings-form"
-          onSubmit={submit}
-        >
+        <form className="dashboard-card game-settings-form" onSubmit={submit}>
           <label>
             <span>시나리오 이름</span>
             <input

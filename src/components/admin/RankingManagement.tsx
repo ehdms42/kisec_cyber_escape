@@ -237,7 +237,7 @@ export default function RankingManagement() {
         </button>
       )}
 
-      <p className="dashboard-degraded-note">
+      <p className="dashboard-neutral-note">
         순위 기준: ① 정답 수가 많은 순 ② 같은 점수에 먼저 도달한 순
       </p>
 

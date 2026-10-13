@@ -175,7 +175,7 @@ export default function GameSettingsPanel() {
             <span>공개 상태 (참가자가 접속할 수 있음)</span>
           </label>
           {value.updatedAt && (
-            <p className="ranking-rule-note">
+            <p className="dashboard-neutral-note">
               마지막 수정: {new Date(value.updatedAt).toLocaleString("ko-KR")}
               {value.updatedByLoginId && ` · ${value.updatedByLoginId}`}
             </p>

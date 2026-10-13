@@ -20,6 +20,17 @@ import type {
   Institution,
 } from "../../admin/institutionTypes"
 import AdminIcon from "./AdminIcon"
+import CampaignOperationsPanel from "./CampaignOperationsPanel"
+
+const CAMPAIGN_STATUS_LABEL: Record<Campaign["status"], string> = {
+  draft: "준비 중",
+  open: "입장 가능",
+  in_progress: "진행 중",
+  paused: "일시정지",
+  closed: "종료",
+  finalized: "결과 확정",
+  cancelled: "취소됨",
+}
 
 const ATTEMPT_STATUS_LABEL: Record<AttemptStatus, string> = {
   in_progress: "진행 중",
@@ -50,6 +61,9 @@ export default function InstitutionManagement() {
   const [editingInstitution, setEditingInstitution] =
     useState<Institution | null>(null)
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null)
+  const [operatingCampaign, setOperatingCampaign] = useState<Campaign | null>(
+    null,
+  )
   const [attemptFilter, setAttemptFilter] = useState<"all" | AttemptStatus>(
     "all",
   )
@@ -251,11 +265,17 @@ export default function InstitutionManagement() {
                   <code>?campaign={campaign.publicToken}</code>
                 </span>
                 <i className={campaign.active ? "active" : "inactive"}>
-                  {campaign.active ? "배포 중" : "중지"}
+                  {CAMPAIGN_STATUS_LABEL[campaign.status]}
                 </i>
                 <div>
                   <button type="button" onClick={() => copyLink(campaign)}>
                     링크 복사
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOperatingCampaign(campaign)}
+                  >
+                    운영
                   </button>
                   <button
                     type="button"
@@ -378,6 +398,18 @@ export default function InstitutionManagement() {
                 : "배포 링크를 만들었습니다.",
             )
             await refresh()
+          }}
+        />
+      )}
+      {operatingCampaign && (
+        <CampaignOperationsPanel
+          campaign={operatingCampaign}
+          onClose={() => setOperatingCampaign(null)}
+          onUpdated={(updated) => {
+            setOperatingCampaign(updated)
+            setCampaigns((current) =>
+              current.map((item) => (item.id === updated.id ? updated : item)),
+            )
           }}
         />
       )}

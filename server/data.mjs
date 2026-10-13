@@ -1,10 +1,22 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { hwp } from "@mdgate/hwp"
 import { LEGACY_QUESTION_ANSWERS } from "./question-answers.mjs"
+import { hashPassword } from "./security.mjs"
 
 const hwpConverter = hwp()
+
+const ADMIN_ROLES = ["super", "content", "operations", "viewer"]
+const CAMPAIGN_STATUSES = [
+  "draft",
+  "open",
+  "in_progress",
+  "paused",
+  "closed",
+  "finalized",
+  "cancelled",
+]
 
 const EMPTY_DATABASE = {
   questions: [],
@@ -16,10 +28,47 @@ const EMPTY_DATABASE = {
   revokedSessions: [],
   attemptAdjustments: [],
   prizeAwardEvents: [],
+  adminAccounts: [],
+  auditLogs: [],
+  gameSettings: null,
+}
+
+const DEFAULT_GAME_SETTINGS = {
+  title: "CYBER QUEST: 보안 탈출 게임",
+  description: "",
+  cover_image_url: "",
+  education_topic: "",
+  difficulty: "normal",
+  estimated_minutes: 30,
+  default_time_limit_minutes: 30,
+  public: true,
+  updated_at: null,
+  updated_by_login_id: null,
 }
 
 function now() {
   return new Date().toISOString()
+}
+
+function activeForStatus(status) {
+  return ["open", "in_progress", "paused"].includes(status)
+}
+
+function normalizeLoginId(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+}
+
+function participantIdentifierHash(code) {
+  return createHash("sha256")
+    .update(
+      String(code ?? "")
+        .trim()
+        .toLowerCase(),
+    )
+    .digest("hex")
 }
 
 function toQuestion(row) {
@@ -33,6 +82,7 @@ function toQuestion(row) {
     explanation: row.explanation,
     sourceReference: row.source_reference,
     status: row.status,
+    hints: Array.isArray(row.hints) ? row.hints : [],
     sourceDocumentId: row.source_document_id ?? null,
     answerDocumentId: row.answer_document_id ?? null,
     createdAt: row.created_at,
@@ -75,6 +125,9 @@ function toCampaign(row) {
     title: row.title,
     publicToken: row.public_token,
     active: row.active,
+    status: row.status ?? (row.active ? "open" : "closed"),
+    leaderboardVisible: row.leaderboard_visible ?? true,
+    finalizedAt: row.finalized_at ?? null,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     requiredQuestionCount: row.required_question_count,
@@ -96,6 +149,7 @@ function toAttempt(row) {
     status: row.status,
     answeredCount: row.answered_count,
     verifiedScore: row.verified_score,
+    hintPenaltyTotal: row.hint_penalty_total ?? 0,
     startedAt: row.started_at,
     lastSeenAt: row.last_seen_at,
     completedAt: row.completed_at,
@@ -144,6 +198,51 @@ function toPrizeAward(row) {
   }
 }
 
+function toGameSettings(row) {
+  return {
+    title: row.title,
+    description: row.description,
+    coverImageUrl: row.cover_image_url,
+    educationTopic: row.education_topic,
+    difficulty: row.difficulty,
+    estimatedMinutes: row.estimated_minutes,
+    defaultTimeLimitMinutes: row.default_time_limit_minutes,
+    public: row.public,
+    updatedAt: row.updated_at,
+    updatedByLoginId: row.updated_by_login_id,
+  }
+}
+
+function toAdminAccount(row) {
+  return {
+    id: row.id,
+    loginId: row.login_id,
+    displayName: row.display_name,
+    roles: Array.isArray(row.roles) ? row.roles : [],
+    active: row.active,
+    createdByLoginId: row.created_by_login_id ?? null,
+    lastLoginAt: row.last_login_at ?? null,
+    createdAt: row.created_at,
+  }
+}
+
+function toAuditLog(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    adminLoginId: row.admin_login_id,
+    adminDisplayName: row.admin_display_name ?? "",
+    roles: Array.isArray(row.roles_snapshot) ? row.roles_snapshot : [],
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id ?? null,
+    reason: row.reason ?? null,
+    before: row.before ?? null,
+    after: row.after ?? null,
+    ip: row.ip ?? null,
+  }
+}
+
 function toQuestionRow(input, current = null) {
   const timestamp = now()
   return {
@@ -156,6 +255,7 @@ function toQuestionRow(input, current = null) {
     explanation: input.explanation,
     source_reference: input.sourceReference,
     status: input.status,
+    hints: Array.isArray(input.hints) ? input.hints : (current?.hints ?? []),
     source_document_id: input.sourceDocumentId ?? null,
     answer_document_id: input.answerDocumentId ?? null,
     created_at: current?.created_at ?? timestamp,
@@ -269,6 +369,34 @@ function validateQuestion(input) {
     throw new Error("빈 보기가 있습니다.")
   if (!["draft", "published"].includes(input.status))
     throw new Error("문제 상태를 확인해 주세요.")
+  if (input.hints !== undefined) {
+    if (!Array.isArray(input.hints) || input.hints.length > 10)
+      throw new Error("힌트는 10개 이하로 입력해 주세요.")
+    for (const hint of input.hints) {
+      if (typeof hint?.text !== "string" || !hint.text.trim())
+        throw new Error("힌트 내용을 입력해 주세요.")
+      if (!Number.isInteger(hint.penalty) || hint.penalty < 0)
+        throw new Error("힌트 감점을 확인해 주세요.")
+    }
+  }
+}
+
+function validateAdminAccountInput(input, { requirePassword }) {
+  const loginId = normalizeLoginId(input?.loginId)
+  const displayName = String(input?.displayName ?? "")
+    .trim()
+    .slice(0, 60)
+  const roles = Array.isArray(input?.roles)
+    ? [...new Set(input.roles.map(String))]
+    : []
+  if (!loginId || loginId.length < 3)
+    throw new Error("관리자 아이디를 확인해 주세요.")
+  if (!displayName) throw new Error("관리자 이름을 입력해 주세요.")
+  if (!roles.length || !roles.every((role) => ADMIN_ROLES.includes(role)))
+    throw new Error("권한을 하나 이상 선택해 주세요.")
+  if (requirePassword && String(input?.password ?? "").length < 8)
+    throw new Error("비밀번호는 8자 이상이어야 합니다.")
+  return { loginId, displayName, roles }
 }
 
 export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
@@ -319,7 +447,17 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
     }
   }
 
-  return {
+  function requireSupabaseBackend() {
+    if (!supabase) {
+      const error = new Error(
+        "이 기능은 Supabase 연결이 필요합니다. 로컬 데이터 모드에서는 지원되지 않습니다.",
+      )
+      error.status = 503
+      throw error
+    }
+  }
+
+  const store = {
     async revokeAdminSession(nonce, expiresAt) {
       requireBackend()
       if (!nonce || !expiresAt) throw new Error("폐기할 세션 정보가 없습니다.")
@@ -476,7 +614,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       if (!Array.isArray(inputs)) {
         throw new Error("동기화할 기존 문제를 확인해 주세요.")
       }
-      return this.createQuestions(
+      return store.createQuestions(
         inputs.map((input) => {
           const correctAnswer = LEGACY_QUESTION_ANSWERS[input?.ordinal]
           if (!Number.isInteger(correctAnswer)) {
@@ -712,7 +850,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       const { data, error } = await supabase
         .from("campaigns")
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
         )
         .order("created_at", { ascending: false })
       if (error) throw error
@@ -743,6 +881,10 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         ends_at: input.endsAt || null,
         required_question_count: requiredQuestionCount,
       }
+      if (!id) {
+        payload.status = payload.active ? "open" : "draft"
+        payload.leaderboard_visible = true
+      }
       if (!supabase) {
         return mutateLocal((database) => {
           if (
@@ -762,6 +904,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
           }
           const current = index >= 0 ? database.campaigns[index] : null
           const row = {
+            ...current,
             ...payload,
             id: id ?? randomUUID(),
             public_token:
@@ -782,7 +925,73 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         : supabase.from("campaigns").insert(payload)
       const { data, error } = await query
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+        )
+        .single()
+      if (error) throw error
+      return toCampaign(data)
+    },
+
+    async updateCampaignStatus(id, status) {
+      requireBackend()
+      if (!CAMPAIGN_STATUSES.includes(status))
+        throw new Error("세션 상태를 확인해 주세요.")
+      const active = activeForStatus(status)
+      const finalizedAt = status === "finalized" ? now() : null
+      if (!supabase) {
+        return mutateLocal((database) => {
+          const campaign = database.campaigns.find((item) => item.id === id)
+          if (!campaign) {
+            const error = new Error("배포를 찾을 수 없습니다.")
+            error.status = 404
+            throw error
+          }
+          campaign.status = status
+          campaign.active = active
+          if (status === "finalized") campaign.finalized_at = finalizedAt
+          const institution = database.institutions.find(
+            (item) => item.id === campaign.institution_id,
+          )
+          return toCampaign({ ...campaign, institutions: institution })
+        })
+      }
+      const payload = { status, active }
+      if (status === "finalized") payload.finalized_at = finalizedAt
+      const { data, error } = await supabase
+        .from("campaigns")
+        .update(payload)
+        .eq("id", id)
+        .select(
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+        )
+        .single()
+      if (error) throw error
+      return toCampaign(data)
+    },
+
+    async updateCampaignLeaderboardVisibility(id, visible) {
+      requireBackend()
+      if (!supabase) {
+        return mutateLocal((database) => {
+          const campaign = database.campaigns.find((item) => item.id === id)
+          if (!campaign) {
+            const error = new Error("배포를 찾을 수 없습니다.")
+            error.status = 404
+            throw error
+          }
+          campaign.leaderboard_visible = Boolean(visible)
+          const institution = database.institutions.find(
+            (item) => item.id === campaign.institution_id,
+          )
+          return toCampaign({ ...campaign, institutions: institution })
+        })
+      }
+      const { data, error } = await supabase
+        .from("campaigns")
+        .update({ leaderboard_visible: Boolean(visible) })
+        .eq("id", id)
+        .select(
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
         )
         .single()
       if (error) throw error
@@ -821,12 +1030,36 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       const { data, error } = await supabase
         .from("game_attempts")
         .select(
-          "id, campaign_id, status, answered_count, verified_score, started_at, last_seen_at, completed_at, adjustment_reason, participants(nickname, department), campaigns(title, institutions(name))",
+          "id, campaign_id, status, answered_count, verified_score, hint_penalty_total, started_at, last_seen_at, completed_at, adjustment_reason, participants(nickname, department), campaigns(title, institutions(name))",
         )
         .order("started_at", { ascending: false })
         .limit(500)
       if (error) throw error
       return data.map(toAttempt)
+    },
+
+    async listAttemptAnswers(attemptId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("attempt_answers")
+        .select(
+          "question_id, selected_answer, is_correct, answered_at, questions(ordinal, category, prompt, options, correct_answer)",
+        )
+        .eq("attempt_id", attemptId)
+        .order("answered_at", { ascending: true })
+      if (error) throw error
+      return data.map((row) => ({
+        questionId: row.question_id,
+        ordinal: row.questions?.ordinal ?? null,
+        category: row.questions?.category ?? "",
+        prompt: row.questions?.prompt ?? "",
+        options: row.questions?.options ?? [],
+        correctAnswer: row.questions?.correct_answer ?? null,
+        selectedAnswer: row.selected_answer,
+        isCorrect: row.is_correct,
+        answeredAt: row.answered_at,
+      }))
     },
 
     async adjustAttempt(id, input, actorId) {
@@ -955,7 +1188,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         throw new Error("관리자 식별자가 필요합니다.")
       }
       if (!supabase) {
-        const rankings = await this.listRankings(campaignId)
+        const rankings = await store.listRankings(campaignId)
         const winner = rankings[0]
         if (!winner)
           throw new Error("완료한 참여자가 없어 1위를 선정할 수 없습니다.")
@@ -1000,7 +1233,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         p_actor_id: actorId,
       })
       if (error) throw error
-      const awards = await this.listPrizeAwards()
+      const awards = await store.listPrizeAwards()
       return awards.find((award) => award.campaignId === campaignId) ?? null
     },
 
@@ -1050,5 +1283,581 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       })
       if (error) throw error
     },
+
+    async listParticipants(campaignId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("participants")
+        .select(
+          "id, nickname, department, contact, registered_by, created_at, game_attempts(id, status, verified_score, answered_count, started_at, last_seen_at, completed_at)",
+        )
+        .eq("campaign_id", campaignId)
+        .order("created_at", { ascending: false })
+      if (error) throw error
+      return data.map((row) => {
+        const attempt = Array.isArray(row.game_attempts)
+          ? row.game_attempts[0]
+          : row.game_attempts
+        return {
+          id: row.id,
+          nickname: row.nickname,
+          department: row.department ?? "",
+          contact: row.contact ?? "",
+          registeredBy: row.registered_by ?? "self",
+          createdAt: row.created_at,
+          attempt: attempt
+            ? {
+                id: attempt.id,
+                status: attempt.status,
+                verifiedScore: attempt.verified_score,
+                answeredCount: attempt.answered_count,
+                startedAt: attempt.started_at,
+                lastSeenAt: attempt.last_seen_at,
+                completedAt: attempt.completed_at,
+              }
+            : null,
+        }
+      })
+    },
+
+    async importParticipants(campaignId, rows) {
+      requireBackend()
+      requireSupabaseBackend()
+      if (!Array.isArray(rows) || !rows.length)
+        throw new Error("등록할 참가자 목록이 비어 있습니다.")
+      if (rows.length > 1000)
+        throw new Error("한 번에 등록할 참가자 수를 확인해 주세요.")
+
+      const results = []
+      const seen = new Set()
+      const payload = []
+      rows.forEach((row, index) => {
+        const nickname = String(row?.nickname ?? "")
+          .trim()
+          .slice(0, 24)
+        const code = String(row?.participantCode ?? "").trim()
+        const department = String(row?.department ?? "")
+          .trim()
+          .slice(0, 60)
+        const contact = String(row?.contact ?? "")
+          .trim()
+          .slice(0, 120)
+        if (!nickname || nickname.length < 2 || !code || code.length < 4) {
+          results.push({
+            row: index + 1,
+            nickname,
+            status: "skipped",
+            message:
+              "닉네임(2자 이상) 또는 참여 코드(4자 이상)를 확인해 주세요.",
+          })
+          return
+        }
+        const identifierHash = participantIdentifierHash(code)
+        if (seen.has(identifierHash)) {
+          results.push({
+            row: index + 1,
+            nickname,
+            status: "skipped",
+            message: "같은 참여 코드가 목록에 중복되었습니다.",
+          })
+          return
+        }
+        seen.add(identifierHash)
+        payload.push({
+          row: index + 1,
+          campaign_id: campaignId,
+          nickname,
+          department,
+          contact,
+          identifier_hash: identifierHash,
+          registered_by: "csv",
+        })
+      })
+
+      if (payload.length) {
+        const { data: existingRows, error: existingError } = await supabase
+          .from("participants")
+          .select("identifier_hash")
+          .eq("campaign_id", campaignId)
+          .in(
+            "identifier_hash",
+            payload.map((row) => row.identifier_hash),
+          )
+        if (existingError) throw existingError
+        const existingHashes = new Set(
+          (existingRows ?? []).map((row) => row.identifier_hash),
+        )
+
+        const toInsert = []
+        for (const row of payload) {
+          if (existingHashes.has(row.identifier_hash)) {
+            results.push({
+              row: row.row,
+              nickname: row.nickname,
+              status: "duplicate",
+              message: "이미 등록된 참여 코드입니다.",
+            })
+            continue
+          }
+          toInsert.push(row)
+        }
+
+        if (toInsert.length) {
+          const { error } = await supabase
+            .from("participants")
+            .insert(toInsert.map(({ row: _row, ...rest }) => rest))
+          if (error) {
+            if (error.code === "23505") {
+              const duplicateError = new Error(
+                "참가자 등록 중 중복이 발생했습니다. 다시 시도해 주세요.",
+              )
+              duplicateError.status = 409
+              throw duplicateError
+            }
+            throw error
+          }
+          for (const row of toInsert) {
+            results.push({
+              row: row.row,
+              nickname: row.nickname,
+              status: "registered",
+              message: "등록되었습니다.",
+            })
+          }
+        }
+      }
+      return results.sort((left, right) => left.row - right.row)
+    },
+
+    async listCampaignLiveAttempts(campaignId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("live_leaderboard_entries")
+        .select(
+          "attempt_id, nickname, security_level, verified_score, answered_count, score_reached_at, status, updated_at",
+        )
+        .eq("campaign_id", campaignId)
+        .order("verified_score", { ascending: false })
+      if (error) throw error
+      const attemptIds = data.map((row) => row.attempt_id)
+      let lastSeenById = new Map()
+      if (attemptIds.length) {
+        const { data: attempts, error: attemptsError } = await supabase
+          .from("game_attempts")
+          .select("id, last_seen_at")
+          .in("id", attemptIds)
+        if (attemptsError) throw attemptsError
+        lastSeenById = new Map(
+          attempts.map((row) => [row.id, row.last_seen_at]),
+        )
+      }
+      const nowMs = Date.now()
+      return data.map((row) => {
+        const lastSeenAt = lastSeenById.get(row.attempt_id) ?? row.updated_at
+        const idleSeconds = Math.max(
+          0,
+          Math.floor((nowMs - new Date(lastSeenAt).getTime()) / 1000),
+        )
+        return {
+          attemptId: row.attempt_id,
+          nickname: row.nickname,
+          securityLevel: row.security_level,
+          verifiedScore: row.verified_score,
+          answeredCount: row.answered_count,
+          status: row.status,
+          lastSeenAt,
+          idleSeconds,
+          stalled: row.status === "in_progress" && idleSeconds > 900,
+        }
+      })
+    },
+
+    async getDashboardSummary() {
+      requireBackend()
+      if (!supabase) {
+        const database = await readLocal()
+        return {
+          sessionsInProgress: database.campaigns.filter(
+            (item) => item.status === "in_progress",
+          ).length,
+          sessionsToday: 0,
+          totalParticipants: 0,
+          totalAttempts: database.attempts.length,
+          completedAttempts: database.attempts.filter(
+            (item) => item.status === "completed",
+          ).length,
+          completionRate: 0,
+          averageElapsedSeconds: 0,
+          questionAccuracy: [],
+          hintUsageTotal: 0,
+          currentLeaders: [],
+          recentCompletedSessions: [],
+          stalledAttempts: [],
+          degraded: true,
+        }
+      }
+      const { data, error } = await supabase.rpc("admin_dashboard_summary")
+      if (error) throw error
+      return {
+        sessionsInProgress: data.sessions_in_progress,
+        sessionsToday: data.sessions_today,
+        totalParticipants: data.total_participants,
+        totalAttempts: data.total_attempts,
+        completedAttempts: data.completed_attempts,
+        completionRate: data.completion_rate,
+        averageElapsedSeconds: data.average_elapsed_seconds,
+        questionAccuracy: (data.question_accuracy ?? []).map((row) => ({
+          ordinal: row.ordinal,
+          category: row.category,
+          attempts: row.attempts,
+          correct: row.correct,
+          accuracyRate: row.accuracy_rate,
+        })),
+        hintUsageTotal: data.hint_usage_total,
+        currentLeaders: (data.current_leaders ?? []).map((row) => ({
+          campaignId: row.campaign_id,
+          campaignTitle: row.campaign_title,
+          institutionName: row.institution_name,
+          nickname: row.nickname,
+          verifiedScore: row.verified_score,
+        })),
+        recentCompletedSessions: (data.recent_completed_sessions ?? []).map(
+          (row) => ({
+            campaignId: row.campaign_id,
+            campaignTitle: row.campaign_title,
+            institutionName: row.institution_name,
+            endedAt: row.ended_at,
+          }),
+        ),
+        stalledAttempts: (data.stalled_attempts ?? []).map((row) => ({
+          attemptId: row.attempt_id,
+          campaignId: row.campaign_id,
+          nickname: row.nickname,
+          lastSeenAt: row.last_seen_at,
+        })),
+        degraded: false,
+      }
+    },
+
+    async getGameSettings() {
+      requireBackend()
+      if (!supabase) {
+        const database = await readLocal()
+        return toGameSettings(database.gameSettings ?? DEFAULT_GAME_SETTINGS)
+      }
+      const { data, error } = await supabase
+        .from("game_settings")
+        .select("*")
+        .eq("id", true)
+        .maybeSingle()
+      if (error) throw error
+      return toGameSettings(data ?? DEFAULT_GAME_SETTINGS)
+    },
+
+    async updateGameSettings(input, actorLoginId) {
+      requireBackend()
+      const title = String(input?.title ?? "")
+        .trim()
+        .slice(0, 120)
+      const description = String(input?.description ?? "").slice(0, 4000)
+      const coverImageUrl = String(input?.coverImageUrl ?? "")
+        .trim()
+        .slice(0, 2000)
+      const educationTopic = String(input?.educationTopic ?? "")
+        .trim()
+        .slice(0, 120)
+      const difficulty = String(input?.difficulty ?? "normal")
+      const estimatedMinutes = Number(input?.estimatedMinutes)
+      const defaultTimeLimitMinutes = Number(input?.defaultTimeLimitMinutes)
+      const isPublic = Boolean(input?.public)
+      if (!title) throw new Error("시나리오 이름을 입력해 주세요.")
+      if (!["easy", "normal", "hard"].includes(difficulty))
+        throw new Error("난이도를 확인해 주세요.")
+      if (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1)
+        throw new Error("예상 소요 시간을 확인해 주세요.")
+      if (
+        !Number.isInteger(defaultTimeLimitMinutes) ||
+        defaultTimeLimitMinutes < 1
+      )
+        throw new Error("기본 제한 시간을 확인해 주세요.")
+      const payload = {
+        title,
+        description,
+        cover_image_url: coverImageUrl,
+        education_topic: educationTopic,
+        difficulty,
+        estimated_minutes: estimatedMinutes,
+        default_time_limit_minutes: defaultTimeLimitMinutes,
+        public: isPublic,
+        updated_by_login_id: actorLoginId ?? null,
+      }
+      if (!supabase) {
+        return mutateLocal((database) => {
+          database.gameSettings = {
+            ...DEFAULT_GAME_SETTINGS,
+            ...database.gameSettings,
+            ...payload,
+            updated_at: now(),
+          }
+          return toGameSettings(database.gameSettings)
+        })
+      }
+      const { data, error } = await supabase
+        .from("game_settings")
+        .update(payload)
+        .eq("id", true)
+        .select("*")
+        .single()
+      if (error) throw error
+      return toGameSettings(data)
+    },
+
+    async getQuestionById(id) {
+      const questions = await store.listQuestions()
+      return questions.find((item) => item.id === id) ?? null
+    },
+
+    async getInstitutionById(id) {
+      const institutions = await store.listInstitutions()
+      return institutions.find((item) => item.id === id) ?? null
+    },
+
+    async getCampaignById(id) {
+      const campaigns = await store.listCampaigns()
+      return campaigns.find((item) => item.id === id) ?? null
+    },
+
+    async getAdminAccountById(id) {
+      const accounts = await store.listAdminAccounts()
+      return accounts.find((item) => item.id === id) ?? null
+    },
+
+    async listAdminAccounts() {
+      requireBackend()
+      if (!supabase) {
+        const database = await readLocal()
+        return database.adminAccounts
+          .map(toAdminAccount)
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      }
+      const { data, error } = await supabase
+        .from("admin_accounts")
+        .select("*")
+        .order("created_at", { ascending: false })
+      if (error) throw error
+      return data.map(toAdminAccount)
+    },
+
+    async createAdminAccount(input, actorLoginId) {
+      requireBackend()
+      const { loginId, displayName, roles } = validateAdminAccountInput(input, {
+        requirePassword: true,
+      })
+      const passwordHash = await hashPassword(String(input.password))
+      if (!supabase) {
+        return mutateLocal((database) => {
+          if (
+            database.adminAccounts.some((item) => item.login_id === loginId)
+          ) {
+            const error = new Error("이미 사용 중인 관리자 아이디입니다.")
+            error.status = 409
+            throw error
+          }
+          const row = {
+            id: randomUUID(),
+            login_id: loginId,
+            display_name: displayName,
+            password_hash: passwordHash,
+            roles,
+            active: true,
+            created_by_login_id: actorLoginId ?? null,
+            last_login_at: null,
+            created_at: now(),
+          }
+          database.adminAccounts.unshift(row)
+          return toAdminAccount(row)
+        })
+      }
+      const { data, error } = await supabase
+        .from("admin_accounts")
+        .insert({
+          login_id: loginId,
+          display_name: displayName,
+          password_hash: passwordHash,
+          roles,
+          active: true,
+          created_by_login_id: actorLoginId ?? null,
+        })
+        .select("*")
+        .single()
+      if (error) {
+        if (error.code === "23505") {
+          const duplicate = new Error("이미 사용 중인 관리자 아이디입니다.")
+          duplicate.status = 409
+          throw duplicate
+        }
+        throw error
+      }
+      return toAdminAccount(data)
+    },
+
+    async updateAdminAccount(id, input) {
+      requireBackend()
+      const displayName =
+        input?.displayName !== undefined
+          ? String(input.displayName).trim().slice(0, 60)
+          : undefined
+      const roles = Array.isArray(input?.roles)
+        ? [...new Set(input.roles.map(String))]
+        : undefined
+      if (
+        roles &&
+        (!roles.length || !roles.every((role) => ADMIN_ROLES.includes(role)))
+      )
+        throw new Error("권한을 하나 이상 선택해 주세요.")
+      const active =
+        typeof input?.active === "boolean" ? input.active : undefined
+      const password =
+        typeof input?.password === "string" && input.password
+          ? input.password
+          : undefined
+      if (password && password.length < 8)
+        throw new Error("비밀번호는 8자 이상이어야 합니다.")
+      const passwordHash = password ? await hashPassword(password) : undefined
+
+      if (!supabase) {
+        return mutateLocal((database) => {
+          const account = database.adminAccounts.find((item) => item.id === id)
+          if (!account) {
+            const error = new Error("관리자 계정을 찾을 수 없습니다.")
+            error.status = 404
+            throw error
+          }
+          if (displayName !== undefined) account.display_name = displayName
+          if (roles !== undefined) account.roles = roles
+          if (active !== undefined) account.active = active
+          if (passwordHash !== undefined) account.password_hash = passwordHash
+          return toAdminAccount(account)
+        })
+      }
+      const payload = {}
+      if (displayName !== undefined) payload.display_name = displayName
+      if (roles !== undefined) payload.roles = roles
+      if (active !== undefined) payload.active = active
+      if (passwordHash !== undefined) payload.password_hash = passwordHash
+      const { data, error } = await supabase
+        .from("admin_accounts")
+        .update(payload)
+        .eq("id", id)
+        .select("*")
+        .single()
+      if (error) throw error
+      return toAdminAccount(data)
+    },
+
+    async findAdminAccountByLoginId(loginId) {
+      requireBackend()
+      const normalized = normalizeLoginId(loginId)
+      if (!normalized) return null
+      if (!supabase) {
+        const database = await readLocal()
+        return (
+          database.adminAccounts.find((item) => item.login_id === normalized) ??
+          null
+        )
+      }
+      const { data, error } = await supabase
+        .from("admin_accounts")
+        .select("*")
+        .eq("login_id", normalized)
+        .maybeSingle()
+      if (error) throw error
+      return data ?? null
+    },
+
+    async touchAdminAccountLogin(loginId) {
+      if (!supabase && !allowLocalData) return
+      const normalized = normalizeLoginId(loginId)
+      if (!normalized) return
+      if (!supabase) {
+        await mutateLocal((database) => {
+          const account = database.adminAccounts.find(
+            (item) => item.login_id === normalized,
+          )
+          if (account) account.last_login_at = now()
+        })
+        return
+      }
+      await supabase
+        .from("admin_accounts")
+        .update({ last_login_at: now() })
+        .eq("login_id", normalized)
+    },
+
+    async recordAuditLog(entry) {
+      if (!supabase && !allowLocalData) return
+      const row = {
+        id: randomUUID(),
+        created_at: now(),
+        admin_login_id: entry.adminLoginId ?? "",
+        admin_display_name: entry.adminDisplayName ?? "",
+        roles_snapshot: entry.roles ?? [],
+        action: entry.action,
+        target_type: entry.targetType,
+        target_id: entry.targetId != null ? String(entry.targetId) : null,
+        reason: entry.reason ?? null,
+        before: entry.before ?? null,
+        after: entry.after ?? null,
+        ip: entry.ip ?? null,
+      }
+      try {
+        if (!supabase) {
+          await mutateLocal((database) => {
+            database.auditLogs.unshift(row)
+            database.auditLogs = database.auditLogs.slice(0, 5000)
+          })
+          return
+        }
+        const { error } = await supabase.from("admin_audit_logs").insert(row)
+        if (error) throw error
+      } catch (error) {
+        console.error("감사 로그 기록 실패", error)
+      }
+    },
+
+    async listAuditLogs(filters = {}) {
+      requireBackend()
+      const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 500)
+      if (!supabase) {
+        const database = await readLocal()
+        return database.auditLogs
+          .filter((row) =>
+            filters.adminLoginId
+              ? row.admin_login_id === filters.adminLoginId
+              : true,
+          )
+          .filter((row) =>
+            filters.targetType ? row.target_type === filters.targetType : true,
+          )
+          .slice(0, limit)
+          .map(toAuditLog)
+      }
+      let query = supabase
+        .from("admin_audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(limit)
+      if (filters.adminLoginId)
+        query = query.eq("admin_login_id", filters.adminLoginId)
+      if (filters.targetType)
+        query = query.eq("target_type", filters.targetType)
+      const { data, error } = await query
+      if (error) throw error
+      return data.map(toAuditLog)
+    },
   }
+
+  return store
 }

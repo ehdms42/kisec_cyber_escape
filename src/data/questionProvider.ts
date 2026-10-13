@@ -9,6 +9,27 @@ interface PublishedQuestionRow {
   options: unknown
   explanation: string
   source_reference: string
+  hints: unknown
+}
+
+interface ParsedHint {
+  text: string
+  penalty: number
+}
+
+function isParsedHint(item: unknown): item is ParsedHint {
+  return (
+    Boolean(item) &&
+    typeof item === "object" &&
+    typeof (item as { text?: unknown }).text === "string" &&
+    typeof (item as { penalty?: unknown }).penalty === "number"
+  )
+}
+
+function toHints(value: unknown) {
+  if (!Array.isArray(value)) return undefined
+  const hints = value.filter(isParsedHint)
+  return hints.length > 0 ? hints : undefined
 }
 
 function toQuestion(row: PublishedQuestionRow): Question {
@@ -25,6 +46,7 @@ function toQuestion(row: PublishedQuestionRow): Question {
     options: row.options,
     explanation: row.explanation,
     reference: row.source_reference || undefined,
+    hints: toHints(row.hints),
   }
 }
 

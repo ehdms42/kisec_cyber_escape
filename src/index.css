@@ -6776,3 +6776,247 @@ button:focus-visible {
     border-bottom: 1px solid #d6e1ef;
   }
 }
+
+/* ---- Admin MVP 확장: 세션 상태, 참가자, 모니터링, 로그, 설정 ------------- */
+
+.admin-status-badge {
+  align-items: center;
+  gap: 6px;
+  background: #eaf2fc;
+  color: var(--blue-70);
+  letter-spacing: .04em;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: 800 11px var(--ui-font-display);
+  display: inline-flex;
+}
+.admin-status-badge.status-draft { background: #f1f3f6; color: #5b6b7d; }
+.admin-status-badge.status-open { background: #eaf7ef; color: #2f7a4d; }
+.admin-status-badge.status-in_progress { background: #eaf2fc; color: var(--blue-70); }
+.admin-status-badge.status-paused { background: #fdf3e2; color: #9a6a12; }
+.admin-status-badge.status-closed { background: #f1f3f6; color: #5b6b7d; }
+.admin-status-badge.status-finalized { background: #eef0fb; color: #4d4ea6; }
+.admin-status-badge.status-cancelled { background: #fbeaec; color: #ad5360; }
+
+.campaign-operations-panel { width: 100%; max-width: 720px; }
+
+.campaign-operations-tabs {
+  gap: 6px;
+  border-bottom: 1px solid #dce5f0;
+  margin-bottom: 16px;
+  display: flex;
+}
+.campaign-operations-tabs button {
+  color: var(--ui-text-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 9px 14px;
+  font: 800 12px var(--ui-font-display);
+}
+.campaign-operations-tabs button.active {
+  color: var(--blue-70);
+  border-bottom-color: var(--blue-50);
+}
+
+.campaign-status-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  display: flex;
+}
+.campaign-status-row button {
+  color: #285f9f;
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font: 800 11px var(--ui-font-display);
+}
+.campaign-status-row button:hover { background: #eaf2fc; }
+
+.campaign-qr-block {
+  align-items: center;
+  gap: 16px;
+  background: #f8fbff;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 14px;
+  display: flex;
+}
+.campaign-qr-block img { border-radius: 6px; flex: 0 0 auto; }
+.campaign-qr-block div {
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  display: flex;
+}
+.campaign-qr-block code {
+  color: #4b627e;
+  word-break: break-all;
+  font-size: 11px;
+}
+
+.campaign-manual-add {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+  display: flex;
+}
+.campaign-manual-add input { flex: 1 1 140px; }
+
+.campaign-participants-tab,
+.campaign-monitor-tab {
+  flex-direction: column;
+  gap: 4px;
+  display: flex;
+}
+
+.campaign-participants-tab .ranking-table,
+.campaign-monitor-tab .ranking-table { grid-template-columns: initial; }
+.campaign-participants-tab .ranking-table article,
+.campaign-monitor-tab .ranking-table article {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e1e8f1;
+  padding: 11px 16px;
+  display: grid;
+}
+.campaign-monitor-tab .ranking-table article {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+.campaign-participants-tab .ranking-table article:last-child,
+.campaign-monitor-tab .ranking-table article:last-child { border-bottom: 0; }
+.campaign-monitor-tab .ranking-table article.is-stalled { background: #fdf3e2; }
+.campaign-monitor-tab .ranking-table article > em {
+  color: #9a6a12;
+  font: 800 10px var(--ui-font-display);
+  font-style: normal;
+}
+
+.ranking-anonymize-toggle { margin-right: 4px; }
+
+.ranking-row-detail-trigger {
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: grid;
+  cursor: pointer;
+}
+
+.attempt-answer-detail { width: 100%; max-width: 640px; }
+.attempt-answer-list {
+  flex-direction: column;
+  gap: 0;
+  max-height: 60vh;
+  display: flex;
+  overflow-y: auto;
+}
+.attempt-answer-list article {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e1e8f1;
+  padding: 11px 4px;
+  display: grid;
+}
+.attempt-answer-list article:last-child { border-bottom: 0; }
+.attempt-answer-list article > b {
+  color: var(--blue-70);
+  font: 800 14px var(--ui-font-number);
+}
+.attempt-answer-list article > span { min-width: 0; gap: 2px; display: grid; }
+.attempt-answer-list article > span small { color: var(--ui-text-muted); font-size: 10px; }
+.attempt-answer-list article > i {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font: 800 11px var(--ui-font-display);
+  font-style: normal;
+}
+.attempt-answer-list article.is-correct > i { background: #eaf7ef; color: #2f7a4d; }
+.attempt-answer-list article.is-wrong > i { background: #fbeaec; color: #ad5360; }
+
+.audit-log-table { grid-template-columns: initial; }
+.audit-log-table article {
+  grid-template-columns: 150px 170px 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e1e8f1;
+  padding: 11px 16px;
+  font-size: 11px;
+  display: grid;
+}
+.audit-log-table article:last-child { border-bottom: 0; }
+.audit-log-table article > time { color: #4b627e; font-size: 10px; font-weight: 700; }
+.audit-log-table article > span { min-width: 0; gap: 2px; display: grid; }
+.audit-log-table article > span small { color: var(--ui-text-muted); font-size: 10px; }
+.audit-log-table article > em { color: var(--blue-70); font-style: normal; font-weight: 800; }
+
+.game-settings-form {
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  display: flex;
+}
+.game-settings-form footer {
+  justify-content: flex-end;
+  margin-top: 4px;
+  display: flex;
+}
+
+/* ---- 참가자 화면: 문제 힌트 ------------------------------------------- */
+
+.question-hints {
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  display: flex;
+}
+
+.question-hint-trigger {
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  color: var(--blue-60);
+  cursor: pointer;
+  background: #eef3fb;
+  border: 1px dashed var(--blue-40);
+  border-radius: var(--ui-radius-md);
+  padding: 10px 14px;
+  font: 700 13px var(--ui-font-display);
+  display: flex;
+}
+
+.question-hint-trigger:hover:not(:disabled) {
+  background: #e2ecfb;
+}
+
+.question-hint-trigger:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.question-hint-trigger small {
+  color: #bd3042;
+  font-weight: 800;
+}
+
+.question-hint-text {
+  background: #f2f6fd;
+  border: 1px solid var(--blue-30);
+  border-radius: var(--ui-radius-md);
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.question-hint-text b {
+  color: var(--blue-60);
+  margin-right: 6px;
+}

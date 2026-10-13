@@ -8,6 +8,9 @@ interface QuestionPanelProps {
   answerCorrect: boolean | null
   answerPending: boolean
   onSelectAnswer: (index: number) => void
+  revealedHints?: Record<number, string>
+  hintPending?: boolean
+  onRevealHint?: (hintIndex: number) => void
 }
 
 const OPTION_PREFIX_PATTERN = /^[①②③④⑤]\s*/
@@ -20,8 +23,12 @@ export default function QuestionPanel({
   answerCorrect,
   answerPending,
   onSelectAnswer,
+  revealedHints = {},
+  hintPending = false,
+  onRevealHint,
 }: QuestionPanelProps) {
   const answered = selectedAnswer !== null
+  const hints = question.hints ?? []
 
   return (
     <>
@@ -80,6 +87,33 @@ export default function QuestionPanel({
           )
         })}
       </div>
+
+      {hints.length > 0 && onRevealHint && !answered && (
+        <div className="question-hints">
+          {hints.map((hint, index) => {
+            const revealedText = revealedHints[index]
+            const previousHintLocked =
+              index > 0 && revealedHints[index - 1] === undefined
+            return revealedText !== undefined ? (
+              <p className="question-hint-text" key={index}>
+                <b>힌트 {index + 1}</b>
+                <span>{revealedText}</span>
+              </p>
+            ) : (
+              <button
+                key={index}
+                type="button"
+                className="question-hint-trigger"
+                disabled={hintPending || previousHintLocked}
+                onClick={() => onRevealHint(index)}
+              >
+                힌트 {index + 1} 보기
+                {hint.penalty > 0 && <small>-{hint.penalty}점</small>}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }

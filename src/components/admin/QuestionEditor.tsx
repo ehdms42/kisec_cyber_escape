@@ -23,6 +23,7 @@ function createInitialValue(
         explanation: question.explanation,
         sourceReference: question.sourceReference,
         status: question.status,
+        hints: question.hints.map((hint) => ({ ...hint })),
         sourceDocumentId: question.sourceDocumentId,
         answerDocumentId: question.answerDocumentId,
       }
@@ -35,6 +36,7 @@ function createInitialValue(
         explanation: "",
         sourceReference: "",
         status: "draft",
+        hints: [],
         sourceDocumentId: null,
         answerDocumentId: null,
       }
@@ -111,6 +113,16 @@ export default function QuestionEditor({
       return
     }
 
+    const hints = (value.hints ?? [])
+      .map((hint) => ({ text: hint.text.trim(), penalty: hint.penalty }))
+      .filter((hint) => hint.text)
+    if (
+      hints.some((hint) => !Number.isInteger(hint.penalty) || hint.penalty < 0)
+    ) {
+      setError("힌트 감점은 0 이상의 정수로 입력해 주세요.")
+      return
+    }
+
     setSaving(true)
     setError("")
     try {
@@ -122,6 +134,7 @@ export default function QuestionEditor({
         options,
         explanation: value.explanation.trim(),
         sourceReference: value.sourceReference.trim(),
+        hints,
       })
     } catch (saveError) {
       setError(
@@ -290,6 +303,73 @@ export default function QuestionEditor({
             placeholder="문제은행 또는 문서명"
           />
         </label>
+
+        <fieldset className="admin-option-editor">
+          <legend>힌트 (단계별 공개, 감점 선택)</legend>
+          {(value.hints ?? []).map((hint, index) => (
+            <div key={index}>
+              <b>{index + 1}</b>
+              <input
+                value={hint.text}
+                onChange={(event) =>
+                  setValue((current) => ({
+                    ...current,
+                    hints: (current.hints ?? []).map((item, hintIndex) =>
+                      hintIndex === index
+                        ? { ...item, text: event.target.value }
+                        : item,
+                    ),
+                  }))
+                }
+                placeholder={`${index + 1}단계 힌트 내용`}
+              />
+              <input
+                type="number"
+                min="0"
+                value={hint.penalty}
+                onChange={(event) =>
+                  setValue((current) => ({
+                    ...current,
+                    hints: (current.hints ?? []).map((item, hintIndex) =>
+                      hintIndex === index
+                        ? { ...item, penalty: Number(event.target.value) }
+                        : item,
+                    ),
+                  }))
+                }
+                aria-label={`${index + 1}단계 힌트 감점`}
+                title="힌트 공개 시 감점"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setValue((current) => ({
+                    ...current,
+                    hints: (current.hints ?? []).filter(
+                      (_, hintIndex) => hintIndex !== index,
+                    ),
+                  }))
+                }
+                aria-label={`${index + 1}단계 힌트 삭제`}
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+          <button
+            className="admin-add-option"
+            type="button"
+            onClick={() =>
+              setValue((current) => ({
+                ...current,
+                hints: [...(current.hints ?? []), { text: "", penalty: 0 }],
+              }))
+            }
+            disabled={(value.hints ?? []).length >= 10}
+          >
+            + 힌트 추가
+          </button>
+        </fieldset>
 
         {error && <p className="admin-form-error">{error}</p>}
 

@@ -1,6 +1,11 @@
 export type QuestionStatus = "draft" | "published"
 export type DocumentStatus = "processing" | "review" | "completed" | "failed"
 
+export interface QuestionHint {
+  text: string
+  penalty: number
+}
+
 export interface AdminQuestion {
   id: string
   ordinal: number
@@ -11,6 +16,7 @@ export interface AdminQuestion {
   explanation: string
   sourceReference: string
   status: QuestionStatus
+  hints: QuestionHint[]
   sourceDocumentId: string | null
   answerDocumentId: string | null
   createdAt: string
@@ -27,6 +33,7 @@ export interface QuestionInput {
   explanation: string
   sourceReference: string
   status: QuestionStatus
+  hints?: QuestionHint[]
   sourceDocumentId?: string | null
   answerDocumentId?: string | null
 }

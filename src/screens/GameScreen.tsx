@@ -17,7 +17,10 @@ import {
   type GameProgress,
 } from "../game/session"
 import type { Question } from "../data/questions"
-import type { AnswerVerification } from "../admin/institutionTypes"
+import type {
+  AnswerVerification,
+  HintRevealResult,
+} from "../admin/institutionTypes"
 
 interface GameScreenProps {
   onFinish: (score: number) => void | Promise<void>
@@ -28,6 +31,10 @@ interface GameScreenProps {
     questionOrdinal: number,
     selectedAnswer: number,
   ) => boolean | AnswerVerification | Promise<boolean | AnswerVerification>
+  onRevealHint?: (
+    questionOrdinal: number,
+    hintIndex: number,
+  ) => Promise<HintRevealResult>
 }
 
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
@@ -38,6 +45,7 @@ export default function GameScreen({
   initialProgress,
   onProgress,
   onAnswer,
+  onRevealHint,
 }: GameScreenProps) {
   const initial = useRef(
     initialProgress
@@ -56,6 +64,9 @@ export default function GameScreen({
   )
   const [answerPending, setAnswerPending] = useState(false)
   const [answerSubmitError, setAnswerSubmitError] = useState("")
+  const [revealedHints, setRevealedHints] =
+    useState<Record<number, Record<number, string>>>({})
+  const [hintPending, setHintPending] = useState(false)
   const [score, setScore] = useState(initial.score)
   const [answeredCount, setAnsweredCount] = useState(initial.answeredCount)
   const [levelScoreStart, setLevelScoreStart] = useState(
@@ -252,6 +263,26 @@ export default function GameScreen({
       )
     } finally {
       if (answerRequestRef.current === request) setAnswerPending(false)
+    }
+  }
+
+  const revealHintAt = async (hintIndex: number) => {
+    if (!question || !onRevealHint || hintPending) return
+    if (revealedHints[question.id]?.[hintIndex] !== undefined) return
+    setHintPending(true)
+    try {
+      const result = await onRevealHint(question.id, hintIndex)
+      setRevealedHints((current) => ({
+        ...current,
+        [question.id]: {
+          ...(current[question.id] ?? {}),
+          [hintIndex]: result.hintText,
+        },
+      }))
+    } catch {
+      // 힌트를 불러오지 못해도 문제 풀이 흐름은 막지 않는다.
+    } finally {
+      setHintPending(false)
     }
   }
 
@@ -668,6 +699,9 @@ export default function GameScreen({
                 answerCorrect={answerCorrect}
                 answerPending={answerPending}
                 onSelectAnswer={chooseAnswer}
+                revealedHints={revealedHints[question.id] ?? {}}
+                hintPending={hintPending}
+                onRevealHint={onRevealHint ? revealHintAt : undefined}
               />
               {answerSubmitError && (
                 <p className="admin-form-error" role="alert">

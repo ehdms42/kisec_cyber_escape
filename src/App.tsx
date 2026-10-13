@@ -308,6 +308,17 @@ export default function App() {
     [attemptSession],
   )
 
+  const persistHintReveal = useCallback(
+    async (questionOrdinal: number, hintIndex: number) => {
+      if (!attemptSession) {
+        throw new Error("응시 정보를 찾을 수 없습니다.")
+      }
+      const api = await loadAttemptApi()
+      return api.revealHint(attemptSession, questionOrdinal, hintIndex)
+    },
+    [attemptSession],
+  )
+
   const page = {
     title: <TitleScreen onStart={() => setScreen("nickname")} />,
     nickname: (
@@ -417,6 +428,7 @@ export default function App() {
               }
               onProgress={attemptSession ? persistProgress : undefined}
               onAnswer={attemptSession ? persistAnswer : undefined}
+              onRevealHint={attemptSession ? persistHintReveal : undefined}
             />
           </div>
           {attemptSession && campaign && CAMPAIGN_TOKEN && (

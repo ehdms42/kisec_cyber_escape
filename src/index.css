@@ -7609,3 +7609,53 @@ button:focus-visible {
   color: #2e2a24;
   font-weight: 700;
 }
+
+/* ---- 게임 설정 폼: .admin-editor의 입력 필드 스타일을 대체 적용 -------- */
+
+.game-settings-form > label {
+  gap: 6px;
+  display: grid;
+}
+
+.game-settings-form label > span {
+  color: #344c69;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.game-settings-form input,
+.game-settings-form select,
+.game-settings-form textarea {
+  color: var(--blue-95);
+  background: #f8fbff;
+  border: 1px solid #c1d0e4;
+  border-radius: 8px;
+  outline: 0;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.game-settings-form input:focus,
+.game-settings-form select:focus,
+.game-settings-form textarea:focus {
+  background: #fff;
+  border-color: var(--blue-50);
+  box-shadow: 0 0 0 3px #2f6fec1f;
+}
+
+.game-settings-form textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.game-settings-form .admin-editor-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 640px) {
+  .game-settings-form .admin-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}

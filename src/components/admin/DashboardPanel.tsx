@@ -14,14 +14,13 @@ function formatMinutesSeconds(totalSeconds: number) {
 
 interface StatCardProps {
   icon: AdminIconName
-  accent: "blue" | "green" | "amber" | "purple"
   label: string
   value: string | number
 }
 
-function StatCard({ icon, accent, label, value }: StatCardProps) {
+function StatCard({ icon, label, value }: StatCardProps) {
   return (
-    <article className={`dashboard-stat-card accent-${accent}`}>
+    <article className="dashboard-stat-card">
       <span className="dashboard-stat-icon">
         <AdminIcon name={icon} />
       </span>
@@ -109,19 +108,16 @@ export default function DashboardPanel() {
           <div className="dashboard-stat-row" aria-label="세션 현황">
             <StatCard
               icon="monitor"
-              accent="blue"
               label="진행 중인 세션"
               value={summary.sessionsInProgress}
             />
             <StatCard
               icon="calendar"
-              accent="purple"
               label="오늘 예정 세션"
               value={summary.sessionsToday}
             />
             <StatCard
               icon="participants"
-              accent="blue"
               label="전체 참가자"
               value={summary.totalParticipants}
             />
@@ -130,19 +126,16 @@ export default function DashboardPanel() {
           <div className="dashboard-stat-row" aria-label="운영 지표">
             <StatCard
               icon="percent"
-              accent="green"
               label="완료율"
               value={`${summary.completionRate}%`}
             />
             <StatCard
               icon="timer"
-              accent="amber"
               label="평균 탈출 시간"
               value={formatMinutesSeconds(summary.averageElapsedSeconds)}
             />
             <StatCard
               icon="lightbulb"
-              accent="amber"
               label="힌트 사용 횟수"
               value={summary.hintUsageTotal}
             />

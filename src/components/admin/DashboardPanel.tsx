@@ -4,7 +4,7 @@ import type {
   DashboardQuestionAccuracy,
   DashboardSummary,
 } from "../../admin/dashboardRepository"
-import AdminIcon, { type AdminIconName } from "./AdminIcon"
+import AdminIcon from "./AdminIcon"
 
 function formatMinutesSeconds(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -13,21 +13,15 @@ function formatMinutesSeconds(totalSeconds: number) {
 }
 
 interface StatCardProps {
-  icon: AdminIconName
   label: string
   value: string | number
 }
 
-function StatCard({ icon, label, value }: StatCardProps) {
+function StatCard({ label, value }: StatCardProps) {
   return (
     <article className="dashboard-stat-card">
-      <span className="dashboard-stat-icon">
-        <AdminIcon name={icon} />
-      </span>
-      <span className="dashboard-stat-body">
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </span>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </article>
   )
 }
@@ -107,38 +101,20 @@ export default function DashboardPanel() {
 
           <div className="dashboard-stat-row" aria-label="세션 현황">
             <StatCard
-              icon="monitor"
               label="진행 중인 세션"
               value={summary.sessionsInProgress}
             />
-            <StatCard
-              icon="calendar"
-              label="오늘 예정 세션"
-              value={summary.sessionsToday}
-            />
-            <StatCard
-              icon="participants"
-              label="전체 참가자"
-              value={summary.totalParticipants}
-            />
+            <StatCard label="오늘 예정 세션" value={summary.sessionsToday} />
+            <StatCard label="전체 참가자" value={summary.totalParticipants} />
           </div>
 
           <div className="dashboard-stat-row" aria-label="운영 지표">
+            <StatCard label="완료율" value={`${summary.completionRate}%`} />
             <StatCard
-              icon="percent"
-              label="완료율"
-              value={`${summary.completionRate}%`}
-            />
-            <StatCard
-              icon="timer"
               label="평균 탈출 시간"
               value={formatMinutesSeconds(summary.averageElapsedSeconds)}
             />
-            <StatCard
-              icon="lightbulb"
-              label="힌트 사용 횟수"
-              value={summary.hintUsageTotal}
-            />
+            <StatCard label="힌트 사용 횟수" value={summary.hintUsageTotal} />
           </div>
 
           <div className="dashboard-panel-grid">

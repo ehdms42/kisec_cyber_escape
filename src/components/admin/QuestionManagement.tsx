@@ -129,7 +129,7 @@ export default function QuestionManagement() {
   }
 
   return (
-    <main className="admin-content">
+    <main className="admin-content dashboard-page">
       <section className="admin-page-heading">
         <div>
           <h2>문제 관리</h2>
@@ -166,23 +166,23 @@ export default function QuestionManagement() {
         </button>
       )}
 
-      <section className="admin-stat-grid" aria-label="문제 현황">
-        <article>
+      <div className="dashboard-stat-row" aria-label="문제 현황">
+        <article className="dashboard-stat-card">
           <span>전체 문제</span>
           <strong>{questions.length}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>공개</span>
           <strong>{publishedCount}</strong>
         </article>
-        <article>
+        <article className="dashboard-stat-card">
           <span>검수 대기</span>
           <strong>{draftCount}</strong>
         </article>
-      </section>
+      </div>
 
-      <section className="admin-question-section">
-        <div className="admin-toolbar">
+      <section className="dashboard-card">
+        <div className="question-list-toolbar">
           <input
             type="search"
             value={search}
@@ -201,41 +201,42 @@ export default function QuestionManagement() {
             <option value="published">공개</option>
             <option value="draft">초안</option>
           </select>
-          <button
-            className="admin-action-with-icon"
-            type="button"
-            onClick={handleLegacyImport}
-          >
+          <button type="button" onClick={handleLegacyImport}>
             <AdminIcon name="sync" />
             기존 게임 문제 동기화
           </button>
         </div>
 
-        <div className="admin-question-table">
-          <div className="admin-table-head" aria-hidden="true">
-            <span>번호</span>
-            <span>분류 / 문제</span>
-            <span>보기</span>
-            <span>상태</span>
-            <span>관리</span>
-          </div>
-          {loadingData ? (
-            <p className="admin-empty">문제를 불러오고 있습니다…</p>
-          ) : filteredQuestions.length === 0 ? (
-            <p className="admin-empty">조건에 맞는 문제가 없습니다.</p>
-          ) : (
-            filteredQuestions.map((question) => (
-              <article key={question.id}>
+        <div className="question-list-head" aria-hidden="true">
+          <span>번호</span>
+          <span>분류 / 문제</span>
+          <span>보기</span>
+          <span>상태</span>
+          <span>관리</span>
+        </div>
+
+        {loadingData ? (
+          <p className="dashboard-empty-row">문제를 불러오고 있습니다…</p>
+        ) : filteredQuestions.length === 0 ? (
+          <p className="dashboard-empty-row">조건에 맞는 문제가 없습니다.</p>
+        ) : (
+          <div className="question-list-rows">
+            {filteredQuestions.map((question) => (
+              <article className="question-row" key={question.id}>
                 <b>{question.ordinal}</b>
                 <button type="button" onClick={() => openQuestion(question)}>
                   <small>{question.category}</small>
                   <strong>{question.prompt}</strong>
                 </button>
                 <span>{question.options.length}개</span>
-                <i className={question.status}>
+                <i
+                  className={`admin-status-badge status-${
+                    question.status === "published" ? "open" : "draft"
+                  }`}
+                >
                   {question.status === "published" ? "공개" : "초안"}
                 </i>
-                <div>
+                <div className="question-row-actions">
                   <button type="button" onClick={() => openQuestion(question)}>
                     <AdminIcon name="edit" />
                     수정
@@ -246,9 +247,9 @@ export default function QuestionManagement() {
                   </button>
                 </div>
               </article>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {editorOpen && (

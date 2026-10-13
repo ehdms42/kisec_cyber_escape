@@ -1,36 +1,21 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react"
-import {
-  createQuestions,
-  deleteQuestion,
-  importLegacyQuestions,
-  listQuestions,
-  saveQuestion,
-} from "../admin/questionRepository"
-import type {
-  AdminQuestion,
-  QuestionInput,
-  QuestionStatus,
-} from "../admin/types"
+import { useCallback, useEffect, useState, type FormEvent } from "react"
 import {
   AdminApiError,
   getAdminSession,
   loginAdmin,
   logoutAdmin,
+  type AdminRole,
 } from "../admin/serverApi"
-import DocumentImportPanel from "../components/admin/DocumentImportPanel"
+import AccountManagement from "../components/admin/AccountManagement"
 import AdminIcon from "../components/admin/AdminIcon"
+import AuditLogViewer from "../components/admin/AuditLogViewer"
+import DashboardPanel from "../components/admin/DashboardPanel"
+import GameSettingsPanel from "../components/admin/GameSettingsPanel"
 import InstitutionManagement from "../components/admin/InstitutionManagement"
-import QuestionEditor from "../components/admin/QuestionEditor"
+import QuestionManagement from "../components/admin/QuestionManagement"
 import RankingManagement from "../components/admin/RankingManagement"
 
 type AccessState = "loading" | "setup" | "login" | "checking" | "ready"
-type StatusFilter = "all" | QuestionStatus
 
 function returnToPrevious() {
   if (window.history.length > 1) {
@@ -137,30 +122,39 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
   )
 }
 
+interface AdminPageTitle {
+  prefix: string
+  title: string
+}
+
+const PAGE_TITLES: AdminPageTitle[] = [
+  { prefix: "/admin/institutions", title: "기관 · 세션 | CYBER QUEST" },
+  { prefix: "/admin/rankings", title: "탈출 순위 | CYBER QUEST" },
+  { prefix: "/admin/accounts", title: "관리자 계정 | CYBER QUEST" },
+  { prefix: "/admin/logs", title: "운영 로그 | CYBER QUEST" },
+  { prefix: "/admin/settings", title: "게임 설정 | CYBER QUEST" },
+  { prefix: "/admin/questions", title: "문제 관리 | CYBER QUEST" },
+]
+
 export default function AdminScreen() {
   const [accessState, setAccessState] = useState<AccessState>("loading")
   const [accessMessage, setAccessMessage] = useState("")
-  const [questions, setQuestions] = useState<AdminQuestion[]>([])
-  const [loadingData, setLoadingData] = useState(false)
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [editingQuestion, setEditingQuestion] = useState<AdminQuestion | null>(
-    null,
+  const [roles, setRoles] = useState<AdminRole[]>([])
+
+  const hasRole = useCallback(
+    (...allowed: AdminRole[]) => roles.some((role) => allowed.includes(role)),
+    [roles],
   )
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [notice, setNotice] = useState("")
 
   useEffect(() => {
     const path = window.location.pathname
-    if (path.startsWith("/admin/rankings")) {
-      document.title = "탈출 순위 | CYBER QUEST"
-    } else if (path.startsWith("/admin/institutions")) {
-      document.title = "기관 · 응시 | CYBER QUEST"
+    const match = PAGE_TITLES.find((entry) => path.startsWith(entry.prefix))
+    if (match) {
+      document.title = match.title
     } else if (accessState === "login" || accessState === "setup") {
       document.title = "관리자 로그인 | CYBER QUEST"
     } else {
-      document.title = "문제 관리 | CYBER QUEST"
+      document.title = "대시보드 | CYBER QUEST"
     }
   }, [accessState])
 
@@ -169,6 +163,7 @@ export default function AdminScreen() {
     try {
       const session = await getAdminSession()
       if (!session.userId) throw new Error("관리자 세션을 확인하지 못했습니다.")
+      setRoles(session.roles ?? [])
       setAccessState("ready")
     } catch (error) {
       if (error instanceof AdminApiError && error.status === 401) {
@@ -188,109 +183,9 @@ export default function AdminScreen() {
     void verifyAdmin()
   }, [verifyAdmin])
 
-  const refreshData = useCallback(async () => {
-    setLoadingData(true)
-    try {
-      setQuestions(await listQuestions())
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "관리 데이터를 불러오지 못했습니다.",
-      )
-    } finally {
-      setLoadingData(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (accessState === "ready") void refreshData()
-  }, [accessState, refreshData])
-
-  const filteredQuestions = useMemo(() => {
-    const keyword = search.trim().toLowerCase()
-    return questions.filter((question) => {
-      const matchesStatus =
-        statusFilter === "all" || question.status === statusFilter
-      const matchesSearch =
-        !keyword ||
-        question.prompt.toLowerCase().includes(keyword) ||
-        question.category.toLowerCase().includes(keyword) ||
-        String(question.ordinal).includes(keyword)
-      return matchesStatus && matchesSearch
-    })
-  }, [questions, search, statusFilter])
-
-  const nextOrdinal =
-    questions.reduce(
-      (highest, question) => Math.max(highest, question.ordinal),
-      0,
-    ) + 1
-  const publishedCount = questions.filter(
-    (question) => question.status === "published",
-  ).length
-  const draftCount = questions.length - publishedCount
-
-  const openNewQuestion = () => {
-    setEditingQuestion(null)
-    setEditorOpen(true)
-  }
-
-  const openQuestion = (question: AdminQuestion) => {
-    setEditingQuestion(question)
-    setEditorOpen(true)
-  }
-
-  const handleSave = async (input: QuestionInput) => {
-    await saveQuestion(input)
-    setEditorOpen(false)
-    setNotice(input.id ? "문제를 수정했습니다." : "새 문제를 추가했습니다.")
-    await refreshData()
-  }
-
-  const handleDelete = async (question: AdminQuestion) => {
-    const confirmed = window.confirm(
-      `${question.ordinal}번 문제를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
-    )
-    if (!confirmed) return
-
-    try {
-      await deleteQuestion(question.id)
-      setNotice(`${question.ordinal}번 문제를 삭제했습니다.`)
-      await refreshData()
-    } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : "문제를 삭제하지 못했습니다.",
-      )
-    }
-  }
-
-  const handleLegacyImport = async () => {
-    try {
-      const imported = await importLegacyQuestions()
-      setNotice(
-        imported.length
-          ? `기존 게임 문제 ${imported.length}개를 등록했습니다.`
-          : "등록되지 않은 기존 문제가 없습니다.",
-      )
-      await refreshData()
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "기존 문제를 등록하지 못했습니다.",
-      )
-    }
-  }
-
-  const handleDocumentImport = async (inputs: QuestionInput[]) => {
-    await createQuestions(inputs)
-    setNotice(`${inputs.length}개 문제를 검수 대기 초안으로 추가했습니다.`)
-    await refreshData()
-  }
-
   const signOut = async () => {
     await logoutAdmin().catch(() => undefined)
+    setRoles([])
     setAccessState("login")
   }
 
@@ -335,6 +230,11 @@ export default function AdminScreen() {
   if (accessState === "login") return <AdminLogin onLogin={verifyAdmin} />
 
   const adminPath = window.location.pathname
+  const isDashboard = adminPath === "/admin" || adminPath === "/admin/"
+  const canManageContent = hasRole("content", "super")
+  const canManageOperations = hasRole("operations", "super")
+  const isSuper = hasRole("super")
+
   const adminHeader = (
     <header className="admin-header">
       <div className="admin-header-leading">
@@ -344,25 +244,61 @@ export default function AdminScreen() {
         </a>
       </div>
       <nav>
-        <a className={adminPath === "/admin" ? "active" : ""} href="/admin">
-          <AdminIcon name="questions" />
-          문제
+        <a className={isDashboard ? "active" : ""} href="/admin">
+          <AdminIcon name="dashboard" />
+          대시보드
         </a>
-        <a
-          className={
-            adminPath.startsWith("/admin/institutions") ? "active" : ""
-          }
-          href="/admin/institutions"
-        >
-          <AdminIcon name="institutions" />
-          기관 · 응시
-        </a>
+        {canManageContent && (
+          <a
+            className={adminPath.startsWith("/admin/questions") ? "active" : ""}
+            href="/admin/questions"
+          >
+            <AdminIcon name="questions" />
+            문제
+          </a>
+        )}
+        {canManageOperations && (
+          <a
+            className={
+              adminPath.startsWith("/admin/institutions") ? "active" : ""
+            }
+            href="/admin/institutions"
+          >
+            <AdminIcon name="institutions" />
+            기관 · 세션
+          </a>
+        )}
         <a
           className={adminPath.startsWith("/admin/rankings") ? "active" : ""}
           href="/admin/rankings"
         >
           <AdminIcon name="ranking" />
-          탈출 순위
+          순위 · 결과
+        </a>
+        {canManageContent && (
+          <a
+            className={adminPath.startsWith("/admin/settings") ? "active" : ""}
+            href="/admin/settings"
+          >
+            <AdminIcon name="settings" />
+            게임 설정
+          </a>
+        )}
+        {isSuper && (
+          <a
+            className={adminPath.startsWith("/admin/accounts") ? "active" : ""}
+            href="/admin/accounts"
+          >
+            <AdminIcon name="accounts" />
+            관리자 계정
+          </a>
+        )}
+        <a
+          className={adminPath.startsWith("/admin/logs") ? "active" : ""}
+          href="/admin/logs"
+        >
+          <AdminIcon name="logs" />
+          운영 로그
         </a>
         <a href="/">
           <AdminIcon name="game" />
@@ -376,172 +312,50 @@ export default function AdminScreen() {
     </header>
   )
 
-  if (window.location.pathname.startsWith("/admin/institutions")) {
-    return (
-      <div className="admin-screen">
-        {adminHeader}
-        <InstitutionManagement />
-      </div>
+  const content = adminPath.startsWith("/admin/institutions") ? (
+    canManageOperations ? (
+      <InstitutionManagement />
+    ) : (
+      <main className="admin-content">
+        <p className="admin-empty">이 메뉴에 접근할 권한이 없습니다.</p>
+      </main>
     )
-  }
-
-  if (window.location.pathname.startsWith("/admin/rankings")) {
-    return (
-      <div className="admin-screen">
-        {adminHeader}
-        <RankingManagement />
-      </div>
+  ) : adminPath.startsWith("/admin/rankings") ? (
+    <RankingManagement />
+  ) : adminPath.startsWith("/admin/accounts") ? (
+    isSuper ? (
+      <AccountManagement />
+    ) : (
+      <main className="admin-content">
+        <p className="admin-empty">이 메뉴에 접근할 권한이 없습니다.</p>
+      </main>
     )
-  }
+  ) : adminPath.startsWith("/admin/logs") ? (
+    <AuditLogViewer />
+  ) : adminPath.startsWith("/admin/settings") ? (
+    canManageContent ? (
+      <GameSettingsPanel />
+    ) : (
+      <main className="admin-content">
+        <p className="admin-empty">이 메뉴에 접근할 권한이 없습니다.</p>
+      </main>
+    )
+  ) : adminPath.startsWith("/admin/questions") ? (
+    canManageContent ? (
+      <QuestionManagement />
+    ) : (
+      <main className="admin-content">
+        <p className="admin-empty">이 메뉴에 접근할 권한이 없습니다.</p>
+      </main>
+    )
+  ) : (
+    <DashboardPanel />
+  )
 
   return (
     <div className="admin-screen">
       {adminHeader}
-
-      <main className="admin-content">
-        <section className="admin-page-heading">
-          <div>
-            <h2>문제 관리</h2>
-            <p>게임에 사용할 문제를 등록하고 공개 상태를 관리합니다.</p>
-          </div>
-          <div>
-            <button
-              className="admin-action-with-icon"
-              type="button"
-              onClick={() => setImportOpen(true)}
-            >
-              <AdminIcon name="upload" />
-              PDF · HWP 가져오기
-            </button>
-            <button
-              className="admin-primary admin-action-with-icon"
-              type="button"
-              onClick={openNewQuestion}
-            >
-              <AdminIcon name="plus" />
-              문제 추가
-            </button>
-          </div>
-        </section>
-
-        {notice && (
-          <button
-            className="admin-notice"
-            type="button"
-            onClick={() => setNotice("")}
-          >
-            {notice}
-            <span>닫기</span>
-          </button>
-        )}
-
-        <section className="admin-stat-grid" aria-label="문제 현황">
-          <article>
-            <span>전체 문제</span>
-            <strong>{questions.length}</strong>
-          </article>
-          <article>
-            <span>공개</span>
-            <strong>{publishedCount}</strong>
-          </article>
-          <article>
-            <span>검수 대기</span>
-            <strong>{draftCount}</strong>
-          </article>
-        </section>
-
-        <section className="admin-question-section">
-          <div className="admin-toolbar">
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="번호, 분류, 문제 내용 검색"
-              aria-label="문제 검색"
-            />
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as StatusFilter)
-              }
-              aria-label="공개 상태 필터"
-            >
-              <option value="all">전체 상태</option>
-              <option value="published">공개</option>
-              <option value="draft">초안</option>
-            </select>
-            <button
-              className="admin-action-with-icon"
-              type="button"
-              onClick={handleLegacyImport}
-            >
-              <AdminIcon name="sync" />
-              기존 게임 문제 동기화
-            </button>
-          </div>
-
-          <div className="admin-question-table">
-            <div className="admin-table-head" aria-hidden="true">
-              <span>번호</span>
-              <span>분류 / 문제</span>
-              <span>보기</span>
-              <span>상태</span>
-              <span>관리</span>
-            </div>
-            {loadingData ? (
-              <p className="admin-empty">문제를 불러오고 있습니다…</p>
-            ) : filteredQuestions.length === 0 ? (
-              <p className="admin-empty">조건에 맞는 문제가 없습니다.</p>
-            ) : (
-              filteredQuestions.map((question) => (
-                <article key={question.id}>
-                  <b>{question.ordinal}</b>
-                  <button type="button" onClick={() => openQuestion(question)}>
-                    <small>{question.category}</small>
-                    <strong>{question.prompt}</strong>
-                  </button>
-                  <span>{question.options.length}개</span>
-                  <i className={question.status}>
-                    {question.status === "published" ? "공개" : "초안"}
-                  </i>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => openQuestion(question)}
-                    >
-                      <AdminIcon name="edit" />
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(question)}
-                    >
-                      <AdminIcon name="delete" />
-                      삭제
-                    </button>
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-      </main>
-
-      {editorOpen && (
-        <QuestionEditor
-          question={editingQuestion}
-          nextOrdinal={nextOrdinal}
-          onSave={handleSave}
-          onClose={() => setEditorOpen(false)}
-        />
-      )}
-      {importOpen && (
-        <DocumentImportPanel
-          nextOrdinal={nextOrdinal}
-          onImport={handleDocumentImport}
-          onClose={() => setImportOpen(false)}
-        />
-      )}
+      {content}
     </div>
   )
 }

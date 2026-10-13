@@ -115,6 +115,21 @@ function sessionFromRequest(req) {
   return verifySession(sessionSecret, token)
 }
 
+// 환경변수 기반 계정은 잠금 방지를 위한 "부트스트랩 최고 관리자"로 항상 유지하고,
+// 그 외 로그인 ID는 admin_accounts 테이블에서 역할(role)을 조회한다.
+async function resolveAdminIdentity(loginId) {
+  if (loginId === adminId) {
+    return { loginId: adminId, displayName: "최고 관리자", roles: ["super"] }
+  }
+  const account = await store.findAdminAccountByLoginId(loginId)
+  if (!account || !account.active) return null
+  return {
+    loginId: account.login_id,
+    displayName: account.display_name,
+    roles: Array.isArray(account.roles) ? account.roles : [],
+  }
+}
+
 async function requireAdmin(req, res, next) {
   try {
     const session = sessionFromRequest(req)
@@ -122,10 +137,27 @@ async function requireAdmin(req, res, next) {
       res.status(401).json({ message: "관리자 로그인이 필요합니다." })
       return
     }
+    const identity = await resolveAdminIdentity(session.sub)
+    if (!identity) {
+      res.status(401).json({ message: "관리자 로그인이 필요합니다." })
+      return
+    }
     req.adminSession = session
+    req.adminIdentity = identity
     next()
   } catch (error) {
     next(error)
+  }
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    const identity = req.adminIdentity
+    if (!identity || !roles.some((role) => identity.roles.includes(role))) {
+      res.status(403).json({ message: "이 작업을 수행할 권한이 없습니다." })
+      return
+    }
+    next()
   }
 }
 
@@ -139,6 +171,19 @@ function requireMutationProtection(req, res, next) {
     return
   }
   next()
+}
+
+function auditContext(req) {
+  return {
+    adminLoginId: req.adminSession?.sub ?? "",
+    adminDisplayName: req.adminIdentity?.displayName ?? "",
+    roles: req.adminIdentity?.roles ?? [],
+    ip: req.ip,
+  }
+}
+
+async function recordAudit(req, fields) {
+  await store.recordAuditLog({ ...auditContext(req), ...fields })
 }
 
 function setSessionCookie(res, token) {
@@ -204,8 +249,20 @@ app.post("/api/admin/login", async (req, res) => {
     return
   }
 
-  const passwordMatches = await verifyPassword(password, passwordHash)
-  if (!passwordMatches || requestedId !== adminId) {
+  let authenticated = false
+  let resolvedLoginId = null
+  if (requestedId === adminId) {
+    authenticated = await verifyPassword(password, passwordHash)
+    resolvedLoginId = adminId
+  } else if (requestedId) {
+    const account = await store.findAdminAccountByLoginId(requestedId)
+    if (account && account.active) {
+      authenticated = await verifyPassword(password, account.password_hash)
+      resolvedLoginId = account.login_id
+    }
+  }
+
+  if (!authenticated) {
     registerLoginFailure(rateKey)
     await new Promise((resolve) =>
       setTimeout(resolve, 250 + Math.random() * 250),
@@ -217,15 +274,37 @@ app.post("/api/admin/login", async (req, res) => {
   }
 
   loginAttempts.delete(rateKey)
-  const session = createSession(sessionSecret, adminId, sessionTtlSeconds)
+  await store.touchAdminAccountLogin(resolvedLoginId).catch(() => undefined)
+  const session = createSession(
+    sessionSecret,
+    resolvedLoginId,
+    sessionTtlSeconds,
+  )
   setSessionCookie(res, session.token)
-  res.json({ userId: adminId, csrfToken: session.csrfToken })
+  const identity = await resolveAdminIdentity(resolvedLoginId)
+  await store.recordAuditLog({
+    adminLoginId: resolvedLoginId,
+    adminDisplayName: identity?.displayName ?? "",
+    roles: identity?.roles ?? [],
+    action: "login",
+    targetType: "admin_session",
+    targetId: resolvedLoginId,
+    ip: req.ip,
+  })
+  res.json({
+    userId: resolvedLoginId,
+    csrfToken: session.csrfToken,
+    roles: identity?.roles ?? [],
+    displayName: identity?.displayName ?? "",
+  })
 })
 
 app.get("/api/admin/session", requireAdmin, (req, res) => {
   res.json({
     userId: req.adminSession.sub,
     csrfToken: req.adminSession.csrf,
+    roles: req.adminIdentity.roles,
+    displayName: req.adminIdentity.displayName,
   })
 })
 
@@ -238,10 +317,48 @@ app.post(
       req.adminSession.nonce,
       new Date(req.adminSession.exp * 1000).toISOString(),
     )
+    await recordAudit(req, {
+      action: "logout",
+      targetType: "admin_session",
+      targetId: req.adminSession.sub,
+    })
     clearSessionCookie(res)
     res.status(204).end()
   },
 )
+
+// ---- 대시보드 ------------------------------------------------------------
+
+app.get("/api/admin/dashboard", requireAdmin, async (_req, res) => {
+  res.json(await store.getDashboardSummary())
+})
+
+// ---- 게임 설정(시나리오) ---------------------------------------------------
+
+app.get("/api/admin/game-settings", requireAdmin, async (_req, res) => {
+  res.json(await store.getGameSettings())
+})
+
+app.patch(
+  "/api/admin/game-settings",
+  requireAdmin,
+  requireRole("content", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const before = await store.getGameSettings()
+    const after = await store.updateGameSettings(req.body, req.adminSession.sub)
+    await recordAudit(req, {
+      action: "update",
+      targetType: "game_settings",
+      targetId: "singleton",
+      before,
+      after,
+    })
+    res.json(after)
+  },
+)
+
+// ---- 문제 및 힌트 ----------------------------------------------------------
 
 app.get("/api/admin/questions", requireAdmin, async (_req, res) => {
   res.json(await store.listQuestions())
@@ -250,45 +367,87 @@ app.get("/api/admin/questions", requireAdmin, async (_req, res) => {
 app.post(
   "/api/admin/questions",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.status(201).json(await store.saveQuestion(req.body))
+    const after = await store.saveQuestion(req.body)
+    await recordAudit(req, {
+      action: "create",
+      targetType: "question",
+      targetId: after.id,
+      after,
+    })
+    res.status(201).json(after)
   },
 )
 
 app.post(
   "/api/admin/questions/bulk",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.status(201).json(await store.createQuestions(req.body?.questions))
+    const after = await store.createQuestions(req.body?.questions)
+    await recordAudit(req, {
+      action: "bulk_create",
+      targetType: "question",
+      targetId: null,
+      after: { count: after.length },
+    })
+    res.status(201).json(after)
   },
 )
 
 app.post(
   "/api/admin/questions/legacy-sync",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.status(201).json(await store.createLegacyQuestions(req.body?.questions))
+    const after = await store.createLegacyQuestions(req.body?.questions)
+    await recordAudit(req, {
+      action: "legacy_sync",
+      targetType: "question",
+      targetId: null,
+      after: { count: after.length },
+    })
+    res.status(201).json(after)
   },
 )
 
 app.put(
   "/api/admin/questions/:id",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.json(await store.saveQuestion(req.body, req.params.id))
+    const before = await store.getQuestionById(req.params.id)
+    const after = await store.saveQuestion(req.body, req.params.id)
+    await recordAudit(req, {
+      action: "update",
+      targetType: "question",
+      targetId: req.params.id,
+      before,
+      after,
+    })
+    res.json(after)
   },
 )
 
 app.delete(
   "/api/admin/questions/:id",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
+    const before = await store.getQuestionById(req.params.id)
     await store.deleteQuestion(req.params.id)
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "question",
+      targetId: req.params.id,
+      before,
+    })
     res.status(204).end()
   },
 )
@@ -296,6 +455,7 @@ app.delete(
 app.post(
   "/api/admin/documents",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   upload.single("file"),
   async (req, res) => {
@@ -318,15 +478,21 @@ app.post(
       res.status(400).json({ message: "문서 세트 식별자를 확인해 주세요." })
       return
     }
-    res
-      .status(201)
-      .json(await store.registerDocument(req.file, { role, pairId }))
+    const after = await store.registerDocument(req.file, { role, pairId })
+    await recordAudit(req, {
+      action: "upload",
+      targetType: "document",
+      targetId: after.id,
+      after: { originalName: after.originalName, role },
+    })
+    res.status(201).json(after)
   },
 )
 
 app.post(
   "/api/admin/documents/extract",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   upload.single("file"),
   async (req, res) => {
@@ -352,12 +518,15 @@ app.post(
 app.patch(
   "/api/admin/documents/:id",
   requireAdmin,
+  requireRole("content", "super"),
   requireMutationProtection,
   async (req, res) => {
     await store.updateDocument(req.params.id, req.body)
     res.status(204).end()
   },
 )
+
+// ---- 기관 -----------------------------------------------------------------
 
 app.get("/api/admin/institutions", requireAdmin, async (_req, res) => {
   res.json(await store.listInstitutions())
@@ -366,30 +535,58 @@ app.get("/api/admin/institutions", requireAdmin, async (_req, res) => {
 app.post(
   "/api/admin/institutions",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.status(201).json(await store.saveInstitution(req.body))
+    const after = await store.saveInstitution(req.body)
+    await recordAudit(req, {
+      action: "create",
+      targetType: "institution",
+      targetId: after.id,
+      after,
+    })
+    res.status(201).json(after)
   },
 )
 
 app.put(
   "/api/admin/institutions/:id",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.json(await store.saveInstitution(req.body, req.params.id))
+    const before = await store.getInstitutionById(req.params.id)
+    const after = await store.saveInstitution(req.body, req.params.id)
+    await recordAudit(req, {
+      action: "update",
+      targetType: "institution",
+      targetId: req.params.id,
+      before,
+      after,
+    })
+    res.json(after)
   },
 )
 
 app.delete(
   "/api/admin/institutions/:id",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
+    const before = await store.getInstitutionById(req.params.id)
     await store.deleteInstitution(req.params.id)
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "institution",
+      targetId: req.params.id,
+      before,
+    })
     res.status(204).end()
   },
 )
+
+// ---- 세션(캠페인) ----------------------------------------------------------
 
 app.get("/api/admin/campaigns", requireAdmin, async (_req, res) => {
   res.json(await store.listCampaigns())
@@ -398,44 +595,170 @@ app.get("/api/admin/campaigns", requireAdmin, async (_req, res) => {
 app.post(
   "/api/admin/campaigns",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.status(201).json(await store.saveCampaign(req.body))
+    const after = await store.saveCampaign(req.body)
+    await recordAudit(req, {
+      action: "create",
+      targetType: "campaign",
+      targetId: after.id,
+      after,
+    })
+    res.status(201).json(after)
   },
 )
 
 app.put(
   "/api/admin/campaigns/:id",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.json(await store.saveCampaign(req.body, req.params.id))
+    const before = await store.getCampaignById(req.params.id)
+    const after = await store.saveCampaign(req.body, req.params.id)
+    await recordAudit(req, {
+      action: "update",
+      targetType: "campaign",
+      targetId: req.params.id,
+      before,
+      after,
+    })
+    res.json(after)
+  },
+)
+
+app.patch(
+  "/api/admin/campaigns/:id/status",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const before = await store.getCampaignById(req.params.id)
+    const after = await store.updateCampaignStatus(
+      req.params.id,
+      String(req.body?.status ?? ""),
+    )
+    await recordAudit(req, {
+      action: "status_change",
+      targetType: "campaign",
+      targetId: req.params.id,
+      reason: req.body?.reason ?? null,
+      before: { status: before?.status },
+      after: { status: after.status },
+    })
+    res.json(after)
+  },
+)
+
+app.patch(
+  "/api/admin/campaigns/:id/leaderboard-visibility",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const after = await store.updateCampaignLeaderboardVisibility(
+      req.params.id,
+      Boolean(req.body?.visible),
+    )
+    await recordAudit(req, {
+      action: "leaderboard_visibility_change",
+      targetType: "campaign",
+      targetId: req.params.id,
+      after: { leaderboardVisible: after.leaderboardVisible },
+    })
+    res.json(after)
   },
 )
 
 app.delete(
   "/api/admin/campaigns/:id",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
+    const before = await store.getCampaignById(req.params.id)
     await store.deleteCampaign(req.params.id)
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "campaign",
+      targetId: req.params.id,
+      before,
+    })
     res.status(204).end()
   },
 )
+
+// ---- 참가자 ---------------------------------------------------------------
+
+app.get(
+  "/api/admin/campaigns/:id/participants",
+  requireAdmin,
+  requireRole("operations", "super"),
+  async (req, res) => {
+    res.json(await store.listParticipants(req.params.id))
+  },
+)
+
+app.post(
+  "/api/admin/campaigns/:id/participants/import",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const results = await store.importParticipants(
+      req.params.id,
+      req.body?.rows,
+    )
+    await recordAudit(req, {
+      action: "import",
+      targetType: "participant",
+      targetId: req.params.id,
+      after: {
+        registered: results.filter((item) => item.status === "registered")
+          .length,
+        duplicate: results.filter((item) => item.status === "duplicate").length,
+        skipped: results.filter((item) => item.status === "skipped").length,
+      },
+    })
+    res.status(201).json(results)
+  },
+)
+
+// ---- 실시간 모니터링 -------------------------------------------------------
+
+app.get("/api/admin/campaigns/:id/live", requireAdmin, async (req, res) => {
+  res.json(await store.listCampaignLiveAttempts(req.params.id))
+})
+
+// ---- 응시 기록 --------------------------------------------------------------
 
 app.get("/api/admin/attempts", requireAdmin, async (_req, res) => {
   res.json(await store.listAttempts())
 })
 
+app.get("/api/admin/attempts/:id/answers", requireAdmin, async (req, res) => {
+  res.json(await store.listAttemptAnswers(req.params.id))
+})
+
 app.patch(
   "/api/admin/attempts/:id",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
     await store.adjustAttempt(req.params.id, req.body, req.adminSession.sub)
+    await recordAudit(req, {
+      action: `attempt_${req.body?.action ?? "adjust"}`,
+      targetType: "attempt",
+      targetId: req.params.id,
+      reason: req.body?.reason ?? null,
+    })
     res.status(204).end()
   },
 )
+
+// ---- 순위 및 상품 ----------------------------------------------------------
 
 app.get("/api/admin/rankings", requireAdmin, async (req, res) => {
   const campaignId = String(req.query.campaignId ?? "").trim() || null
@@ -449,23 +772,102 @@ app.get("/api/admin/prize-awards", requireAdmin, async (_req, res) => {
 app.post(
   "/api/admin/campaigns/:id/winner",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
-    res.json(
-      await store.selectCampaignWinner(req.params.id, req.adminSession.sub),
+    const after = await store.selectCampaignWinner(
+      req.params.id,
+      req.adminSession.sub,
     )
+    await recordAudit(req, {
+      action: "select_winner",
+      targetType: "prize_award",
+      targetId: req.params.id,
+      after,
+    })
+    res.json(after)
   },
 )
 
 app.patch(
   "/api/admin/campaigns/:id/prize-award",
   requireAdmin,
+  requireRole("operations", "super"),
   requireMutationProtection,
   async (req, res) => {
     await store.updatePrizeAward(req.params.id, req.body, req.adminSession.sub)
+    await recordAudit(req, {
+      action: "update_prize_award",
+      targetType: "prize_award",
+      targetId: req.params.id,
+      after: { status: req.body?.status, note: req.body?.note },
+    })
     res.status(204).end()
   },
 )
+
+// ---- 관리자 계정(RBAC) ------------------------------------------------------
+
+app.get(
+  "/api/admin/accounts",
+  requireAdmin,
+  requireRole("super"),
+  async (_req, res) => {
+    res.json(await store.listAdminAccounts())
+  },
+)
+
+app.post(
+  "/api/admin/accounts",
+  requireAdmin,
+  requireRole("super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const after = await store.createAdminAccount(req.body, req.adminSession.sub)
+    await recordAudit(req, {
+      action: "create",
+      targetType: "admin_account",
+      targetId: after.id,
+      after: { loginId: after.loginId, roles: after.roles },
+    })
+    res.status(201).json(after)
+  },
+)
+
+app.patch(
+  "/api/admin/accounts/:id",
+  requireAdmin,
+  requireRole("super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const before = await store.getAdminAccountById(req.params.id)
+    const after = await store.updateAdminAccount(req.params.id, req.body)
+    await recordAudit(req, {
+      action: "update",
+      targetType: "admin_account",
+      targetId: req.params.id,
+      before: before ? { roles: before.roles, active: before.active } : null,
+      after: { roles: after.roles, active: after.active },
+    })
+    res.json(after)
+  },
+)
+
+// ---- 운영 로그 --------------------------------------------------------------
+
+app.get("/api/admin/audit-logs", requireAdmin, async (req, res) => {
+  res.json(
+    await store.listAuditLogs({
+      limit: req.query.limit,
+      adminLoginId: req.query.adminLoginId
+        ? String(req.query.adminLoginId)
+        : undefined,
+      targetType: req.query.targetType
+        ? String(req.query.targetType)
+        : undefined,
+    }),
+  )
+})
 
 app.use((_req, res) => {
   res.status(404).json({ message: "요청한 서버 기능을 찾을 수 없습니다." })

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { listCampaigns } from "../../admin/institutionRepository"
-import type { Campaign } from "../../admin/institutionTypes"
+import {
+  listAttemptAnswers,
+  listCampaigns,
+} from "../../admin/institutionRepository"
+import type {
+  AttemptAnswerDetail,
+  Campaign,
+} from "../../admin/institutionTypes"
 import {
   listPrizeAwards,
   listRankings,
@@ -44,6 +50,8 @@ export default function RankingManagement() {
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState("")
   const [saving, setSaving] = useState(false)
+  const [anonymizeExport, setAnonymizeExport] = useState(false)
+  const [detailAttemptId, setDetailAttemptId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -157,8 +165,8 @@ export default function RankingManagement() {
       entry.rank,
       entry.institutionName,
       entry.campaignTitle,
-      entry.nickname,
-      entry.department,
+      anonymizeExport ? `참여자-${entry.rank}` : entry.nickname,
+      anonymizeExport ? "비공개" : entry.department,
       SECURITY_LEVEL_META[entry.securityLevel].label,
       entry.verifiedScore,
       entry.answeredCount,
@@ -198,6 +206,14 @@ export default function RankingManagement() {
               </option>
             ))}
           </select>
+          <label className="admin-check-row ranking-anonymize-toggle">
+            <input
+              type="checkbox"
+              checked={anonymizeExport}
+              onChange={(event) => setAnonymizeExport(event.target.checked)}
+            />
+            <span>개인정보 익명화</span>
+          </label>
           <button
             className="admin-action-with-icon"
             type="button"
@@ -326,7 +342,11 @@ export default function RankingManagement() {
                 key={entry.attemptId}
               >
                 <b>{entry.rank}</b>
-                <span>
+                <button
+                  type="button"
+                  className="ranking-row-detail-trigger"
+                  onClick={() => setDetailAttemptId(entry.attemptId)}
+                >
                   <strong>{entry.nickname}</strong>
                   <small>
                     {entry.department || "부서 미입력"} ·{" "}
@@ -337,7 +357,7 @@ export default function RankingManagement() {
                   >
                     {SECURITY_LEVEL_META[entry.securityLevel].label}
                   </i>
-                </span>
+                </button>
                 <em>
                   {entry.verifiedScore} / {entry.answeredCount}
                 </em>
@@ -350,6 +370,105 @@ export default function RankingManagement() {
           )}
         </div>
       </section>
+
+      {detailAttemptId && (
+        <AttemptAnswerDetailModal
+          attemptId={detailAttemptId}
+          onClose={() => setDetailAttemptId(null)}
+        />
+      )}
     </main>
+  )
+}
+
+function AttemptAnswerDetailModal({
+  attemptId,
+  onClose,
+}: {
+  attemptId: string
+  onClose: () => void
+}) {
+  const [answers, setAnswers] = useState<AttemptAnswerDetail[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    listAttemptAnswers(attemptId)
+      .then((data) => {
+        if (!cancelled) setAnswers(data)
+      })
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "답안 상세를 불러오지 못했습니다.",
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attemptId])
+
+  return (
+    <div className="admin-modal" role="presentation" onMouseDown={onClose}>
+      <div
+        className="admin-editor attempt-answer-detail"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <div>
+            <h2>문항별 답안 상세</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기">
+            ×
+          </button>
+        </header>
+        {loading ? (
+          <p className="admin-empty">불러오는 중…</p>
+        ) : error ? (
+          <p className="admin-form-error">{error}</p>
+        ) : answers.length === 0 ? (
+          <p className="admin-empty">기록된 답안이 없습니다.</p>
+        ) : (
+          <div className="attempt-answer-list">
+            {answers.map((answer) => (
+              <article
+                key={answer.questionId}
+                className={answer.isCorrect ? "is-correct" : "is-wrong"}
+              >
+                <b>{answer.ordinal ?? "-"}</b>
+                <span>
+                  <small>{answer.category}</small>
+                  <strong>{answer.prompt}</strong>
+                  <small>
+                    선택:{" "}
+                    {answer.options[answer.selectedAnswer] ??
+                      `${answer.selectedAnswer + 1}번`}
+                    {!answer.isCorrect && answer.correctAnswer !== null && (
+                      <>
+                        {" "}
+                        · 정답:{" "}
+                        {answer.options[answer.correctAnswer] ??
+                          `${answer.correctAnswer + 1}번`}
+                      </>
+                    )}
+                  </small>
+                </span>
+                <i>{answer.isCorrect ? "정답" : "오답"}</i>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

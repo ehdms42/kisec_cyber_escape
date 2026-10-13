@@ -1,8 +1,12 @@
 let csrfToken = ""
 
+export type AdminRole = "super" | "content" | "operations" | "viewer"
+
 interface AdminSessionResponse {
   userId: string
   csrfToken: string
+  roles: AdminRole[]
+  displayName: string
 }
 
 export class AdminApiError extends Error {

@@ -4,10 +4,16 @@ import { announceLeaderboardChange } from "../game/liveLeaderboard"
 import { isSecurityLevel, securityLevelFromResult } from "../game/securityLevel"
 import type {
   AnswerVerification,
+  AttemptAnswerDetail,
   AttemptSession,
   AttemptSummary,
   Campaign,
+  CampaignStatus,
+  HintRevealResult,
   Institution,
+  LiveAttemptEntry,
+  Participant,
+  ParticipantImportResult,
   PublicCampaign,
 } from "./institutionTypes"
 import { adminRequest } from "./serverApi"
@@ -17,6 +23,7 @@ const DEMO_CAMPAIGN_KEY = "cyber-quest-demo-campaigns"
 const DEMO_ATTEMPT_KEY = "cyber-quest-demo-attempts"
 const DEMO_ANSWER_KEY = "cyber-quest-demo-attempt-answers"
 const DEMO_SESSION_KEY = `${DEMO_ATTEMPT_KEY}-sessions`
+const DEMO_HINT_KEY = "cyber-quest-demo-revealed-hints"
 
 interface CompleteAttemptResult {
   verified_score: number
@@ -158,6 +165,14 @@ export async function saveCampaign(input: {
         campaigns.find((item) => item.id === input.id)?.publicToken ??
         crypto.randomUUID().replace(/-/g, "").slice(0, 20),
       active: input.active,
+      status:
+        campaigns.find((item) => item.id === input.id)?.status ??
+        (input.active ? "open" : "draft"),
+      leaderboardVisible:
+        campaigns.find((item) => item.id === input.id)?.leaderboardVisible ??
+        true,
+      finalizedAt:
+        campaigns.find((item) => item.id === input.id)?.finalizedAt ?? null,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       requiredQuestionCount: input.requiredQuestionCount,
@@ -176,6 +191,91 @@ export async function saveCampaign(input: {
     method: input.id ? "PUT" : "POST",
     body: JSON.stringify(input),
   })
+}
+
+export async function updateCampaignStatus(id: string, status: CampaignStatus) {
+  if (isAdminDemoMode) {
+    const campaigns = demoCampaigns().map((campaign) =>
+      campaign.id === id
+        ? {
+            ...campaign,
+            status,
+            active: ["open", "in_progress", "paused"].includes(status),
+            finalizedAt: status === "finalized" ? now() : campaign.finalizedAt,
+          }
+        : campaign,
+    )
+    writeDemo(DEMO_CAMPAIGN_KEY, campaigns)
+    return campaigns.find((campaign) => campaign.id === id)!
+  }
+  return adminRequest<Campaign>(`/campaigns/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  })
+}
+
+export async function updateCampaignLeaderboardVisibility(
+  id: string,
+  visible: boolean,
+) {
+  if (isAdminDemoMode) {
+    const campaigns = demoCampaigns().map((campaign) =>
+      campaign.id === id
+        ? { ...campaign, leaderboardVisible: visible }
+        : campaign,
+    )
+    writeDemo(DEMO_CAMPAIGN_KEY, campaigns)
+    return campaigns.find((campaign) => campaign.id === id)!
+  }
+  return adminRequest<Campaign>(`/campaigns/${id}/leaderboard-visibility`, {
+    method: "PATCH",
+    body: JSON.stringify({ visible }),
+  })
+}
+
+export async function listParticipants(
+  campaignId: string,
+): Promise<Participant[]> {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 참가자 관리를 지원하지 않습니다.")
+  }
+  return adminRequest<Participant[]>(`/campaigns/${campaignId}/participants`)
+}
+
+export async function importParticipants(
+  campaignId: string,
+  rows: Array<{
+    nickname: string
+    participantCode: string
+    department?: string
+    contact?: string
+  }>,
+): Promise<ParticipantImportResult[]> {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 참가자 일괄 등록을 지원하지 않습니다.")
+  }
+  return adminRequest<ParticipantImportResult[]>(
+    `/campaigns/${campaignId}/participants/import`,
+    { method: "POST", body: JSON.stringify({ rows }) },
+  )
+}
+
+export async function listCampaignLiveAttempts(
+  campaignId: string,
+): Promise<LiveAttemptEntry[]> {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 실시간 모니터링을 지원하지 않습니다.")
+  }
+  return adminRequest<LiveAttemptEntry[]>(`/campaigns/${campaignId}/live`)
+}
+
+export async function listAttemptAnswers(
+  attemptId: string,
+): Promise<AttemptAnswerDetail[]> {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 답안 상세 조회를 지원하지 않습니다.")
+  }
+  return adminRequest<AttemptAnswerDetail[]>(`/attempts/${attemptId}/answers`)
 }
 
 export async function deleteCampaign(id: string) {
@@ -484,6 +584,45 @@ export async function recordAttemptAnswer(
     selectedAnswer: result.selected_answer,
     verifiedScore: result.verified_score,
     answeredCount: result.answered_count,
+  }
+}
+
+export async function revealHint(
+  session: AttemptSession,
+  questionOrdinal: number,
+  hintIndex: number,
+): Promise<HintRevealResult> {
+  if (!session.resumeToken || session.status !== "in_progress") {
+    throw new Error("진행 중인 응시 기록을 찾을 수 없습니다.")
+  }
+  if (isAdminDemoMode) {
+    const key = `${DEMO_HINT_KEY}:${session.attemptId}`
+    const revealed = readDemo<Record<string, boolean>>(key, {})
+    const hintKey = `${questionOrdinal}:${hintIndex}`
+    const alreadyRevealed = Boolean(revealed[hintKey])
+    if (!alreadyRevealed) {
+      revealed[hintKey] = true
+      writeDemo(key, revealed)
+    }
+    return {
+      hintText: "데모 모드에서는 실제 힌트 내용을 제공하지 않습니다.",
+      penaltyApplied: 0,
+      alreadyRevealed,
+      hintPenaltyTotal: 0,
+    }
+  }
+  const { data, error } = await requireSupabase().rpc("reveal_attempt_hint", {
+    p_attempt_id: session.attemptId,
+    p_resume_token: session.resumeToken,
+    p_question_ordinal: questionOrdinal,
+    p_hint_index: hintIndex,
+  })
+  if (error) throw error
+  return {
+    hintText: data.hint_text,
+    penaltyApplied: data.penalty_applied,
+    alreadyRevealed: data.already_revealed,
+    hintPenaltyTotal: data.hint_penalty_total,
   }
 }
 

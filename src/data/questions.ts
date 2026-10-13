@@ -1,3 +1,8 @@
+export interface QuestionHint {
+  text: string
+  penalty: number
+}
+
 export interface Question {
   id: number
   category: string
@@ -5,6 +10,7 @@ export interface Question {
   options: string[]
   explanation: string
   reference?: string
+  hints?: QuestionHint[]
 }
 
 export const QUESTIONS: Question[] = [

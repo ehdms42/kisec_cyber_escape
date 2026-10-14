@@ -393,6 +393,32 @@ function demoIdentifier(token: string, participantCode: string) {
   return `${token}:${participantCode.trim().toLocaleLowerCase("ko-KR")}`
 }
 
+export async function lookupParticipantDepartment(
+  publicToken: string,
+  participantCode: string,
+): Promise<string> {
+  if (isAdminDemoMode) {
+    // 데모 모드에서는 사전등록 참가자 개념이 없어 항상 같은 더미 부서를 돌려준다.
+    await getPublicCampaign(publicToken)
+    if (participantCode.trim().length < 4) {
+      throw new Error("참여 코드는 4자 이상이어야 합니다.")
+    }
+    return "데모부서"
+  }
+  const { data, error } = await requireSupabase().rpc(
+    "lookup_participant_department",
+    {
+      p_public_token: publicToken,
+      p_participant_code: participantCode,
+    },
+  )
+  if (error) throw error
+  if (!data) {
+    throw new Error("등록되지 않은 참여 코드입니다. 담당자에게 문의해 주세요.")
+  }
+  return data as string
+}
+
 export async function startOrResumeAttempt(
   publicToken: string,
   participantCode: string,
@@ -461,7 +487,6 @@ export async function startOrResumeAttempt(
       p_public_token: publicToken,
       p_participant_code: participantCode,
       p_nickname: nickname,
-      p_department: department,
     },
   )
   if (error) throw error

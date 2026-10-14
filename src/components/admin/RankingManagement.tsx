@@ -20,6 +20,7 @@ import type {
 } from "../../admin/rankingTypes"
 import { useNotice } from "../../admin/useNotice"
 import { SECURITY_LEVEL_META } from "../../game/securityLevel"
+import { useAdminDialog } from "./AdminDialogProvider"
 import AdminIcon from "./AdminIcon"
 
 const PRIZE_STATUS_LABEL: Record<PrizeStatus, string> = {
@@ -44,6 +45,7 @@ function csvValue(value: string | number) {
 }
 
 export default function RankingManagement() {
+  const { confirm, prompt } = useAdminDialog()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [rankings, setRankings] = useState<RankingEntry[]>([])
   const [awards, setAwards] = useState<PrizeAward[]>([])
@@ -105,13 +107,12 @@ export default function RankingManagement() {
   const selectWinner = async () => {
     if (!campaignId || !entries.length) return
     const winner = entries[0]
-    if (
-      !window.confirm(
-        `${winner.nickname}님을 ${selectedCampaign?.title ?? "현재 배포"}의 1위로 선정할까요?`,
-      )
-    ) {
-      return
-    }
+    const confirmed = await confirm({
+      title: "1위 수상자 확정",
+      message: `${winner.nickname}님을 ${selectedCampaign?.title ?? "현재 배포"}의 1위로 선정할까요?`,
+      confirmLabel: "확정",
+    })
+    if (!confirmed) return
     setSaving(true)
     try {
       await selectCampaignWinner(campaignId)
@@ -128,10 +129,12 @@ export default function RankingManagement() {
 
   const changePrizeStatus = async (status: PrizeStatus) => {
     if (!award) return
-    const note = window
-      .prompt("상품 지급 메모를 입력하세요.", award.note)
-      ?.trim()
-    if (note === undefined) return
+    const note = await prompt({
+      title: "상품 지급 메모",
+      message: "메모를 입력하세요.",
+      defaultValue: award.note,
+    })
+    if (note === null) return
     setSaving(true)
     try {
       await updatePrizeAward(campaignId, status, note)

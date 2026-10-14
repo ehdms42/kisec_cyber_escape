@@ -30,3 +30,15 @@ export async function listAuditLogs(
   const suffix = query.toString() ? `?${query.toString()}` : ""
   return adminRequest<AuditLogEntry[]>(`/audit-logs${suffix}`)
 }
+
+export async function deleteAuditLog(id: string): Promise<void> {
+  await adminRequest<void>(`/audit-logs/${id}`, { method: "DELETE" })
+}
+
+export async function purgeAuditLogs(beforeDate: string): Promise<number> {
+  const result = await adminRequest<{ deletedCount: number }>(
+    "/audit-logs/purge",
+    { method: "POST", body: JSON.stringify({ beforeDate }) },
+  )
+  return result.deletedCount
+}

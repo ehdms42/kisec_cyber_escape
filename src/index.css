@@ -6926,7 +6926,7 @@ button:focus-visible {
 
 .audit-log-table { grid-template-columns: initial; }
 .audit-log-table article {
-  grid-template-columns: 150px 170px 120px minmax(0, 1fr);
+  grid-template-columns: 150px 170px 120px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid #e1e8f1;
@@ -7752,6 +7752,136 @@ button:focus-visible {
   justify-content: flex-end;
   margin: 4px 0 2px;
   display: flex;
+}
+
+/* ---- 관리자용 확인/입력 다이얼로그 (window.confirm/prompt 대체) ---------- */
+
+.admin-dialog {
+  background: #fff;
+  border: 1px solid #e9e6e1;
+  border-radius: 18px;
+  width: min(420px, 100%);
+  padding: 24px;
+  box-shadow: 0 20px 50px #0209144a;
+}
+
+.admin-dialog h2 {
+  color: var(--blue-95);
+  margin: 0 0 8px;
+  font-size: 17px;
+  letter-spacing: -.01em;
+}
+
+.admin-dialog p {
+  color: var(--ui-text-muted);
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-dialog input {
+  color: var(--blue-95);
+  background: #f8fbff;
+  border: 1px solid #d9e3ef;
+  border-radius: 10px;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 14px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.admin-dialog input:focus {
+  border-color: #6b9ae0;
+  outline: none;
+}
+
+.admin-dialog-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+  display: flex;
+}
+
+.admin-dialog-actions button {
+  cursor: pointer;
+  border-radius: 10px;
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-dialog-cancel {
+  color: #55524a;
+  background: #f3f1ec;
+  border: 1px solid #e3ded2;
+}
+
+.admin-dialog-cancel:hover {
+  background: #ebe7df;
+}
+
+.admin-dialog-confirm {
+  color: #fff;
+  background: linear-gradient(180deg, #3975dc, #245abb);
+  border: 1px solid #6593da;
+}
+
+.admin-dialog-confirm.is-danger {
+  background: linear-gradient(180deg, #d9707c, #b64a56);
+  border-color: #dd99a1;
+}
+
+.admin-dialog-confirm:disabled {
+  color: #9aa9bd;
+  cursor: not-allowed;
+  background: #dfe7f2;
+  border-color: #d7e0ee;
+}
+
+.audit-log-day-group {
+  border-bottom: 1px solid #eef2f8;
+}
+
+.audit-log-day-group:last-child {
+  border-bottom: 0;
+}
+
+.audit-log-day-heading {
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: #f7f6f3;
+  padding: 9px 20px;
+  display: flex;
+}
+
+.audit-log-day-heading span {
+  color: #2e2a24;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.audit-log-day-heading b {
+  color: var(--ui-text-muted);
+  font: 600 11px var(--ui-font-number);
+}
+
+.audit-log-purge {
+  align-items: center;
+  gap: 8px;
+  display: flex;
+}
+
+.audit-log-purge select {
+  color: var(--blue-95);
+  background: #f8fbff;
+  border: 1px solid #e0e8f2;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .attempt-department-group {

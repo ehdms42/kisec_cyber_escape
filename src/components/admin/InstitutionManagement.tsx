@@ -22,6 +22,7 @@ import type {
 } from "../../admin/institutionTypes"
 import { useNotice } from "../../admin/useNotice"
 import AdminIcon from "./AdminIcon"
+import { useAdminDialog } from "./AdminDialogProvider"
 import CampaignOperationsPanel from "./CampaignOperationsPanel"
 
 const CAMPAIGN_STATUS_LABEL: Record<Campaign["status"], string> = {
@@ -53,6 +54,7 @@ function toIso(value: string) {
 }
 
 export default function InstitutionManagement() {
+  const { confirm, prompt } = useAdminDialog()
   const [institutions, setInstitutions] = useState<Institution[]>([])
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [attempts, setAttempts] = useState<AttemptSummary[]>([])
@@ -134,13 +136,13 @@ export default function InstitutionManagement() {
   }, [visibleAttempts])
 
   const removeInstitution = async (institution: Institution) => {
-    if (
-      !window.confirm(
-        `${institution.name} 기관을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
-      )
-    ) {
-      return
-    }
+    const confirmed = await confirm({
+      title: "기관 삭제",
+      message: `${institution.name} 기관을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
+      confirmLabel: "삭제",
+      tone: "danger",
+    })
+    if (!confirmed) return
     try {
       await deleteInstitution(institution.id)
       setNotice(`${institution.name} 기관을 삭제했습니다.`)
@@ -158,7 +160,14 @@ export default function InstitutionManagement() {
       await navigator.clipboard.writeText(link)
       setNotice(`${campaign.institutionName} 배포 링크를 복사했습니다.`)
     } catch {
-      window.prompt("아래 배포 링크를 복사하세요.", link)
+      await prompt({
+        title: "배포 링크",
+        message: "아래 링크를 직접 선택해서 복사하세요.",
+        defaultValue: link,
+        readOnly: true,
+        cancelLabel: "닫기",
+        confirmLabel: "닫기",
+      })
     }
   }
 
@@ -172,20 +181,24 @@ export default function InstitutionManagement() {
         : action === "void"
           ? "무효 처리"
           : "재개"
-    const reason = window.prompt(
-      `${actionLabel} 사유를 입력하세요.`,
-      "운영자 확인",
-    )
-    if (!reason?.trim()) return
-    if (
-      action === "reset" &&
-      !window.confirm("기존 답안과 점수가 삭제됩니다. 정말 초기화할까요?")
-    ) {
-      return
+    const reason = await prompt({
+      title: `${actionLabel} 사유 입력`,
+      defaultValue: "운영자 확인",
+      minLength: 1,
+    })
+    if (!reason) return
+    if (action === "reset") {
+      const confirmed = await confirm({
+        title: "초기화 확인",
+        message: "기존 답안과 점수가 삭제됩니다. 정말 초기화할까요?",
+        confirmLabel: "초기화",
+        tone: "danger",
+      })
+      if (!confirmed) return
     }
 
     try {
-      await adjustAttempt(attempt.id, action, reason.trim())
+      await adjustAttempt(attempt.id, action, reason)
       setNotice(
         `${attempt.nickname}님의 기록을 ${actionLabel} 상태로 변경했습니다.`,
       )

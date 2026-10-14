@@ -869,6 +869,39 @@ app.get("/api/admin/audit-logs", requireAdmin, async (req, res) => {
   )
 })
 
+app.delete(
+  "/api/admin/audit-logs/:id",
+  requireAdmin,
+  requireRole("super"),
+  requireMutationProtection,
+  async (req, res) => {
+    await store.deleteAuditLog(req.params.id)
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "admin_audit_log",
+      targetId: req.params.id,
+    })
+    res.status(204).end()
+  },
+)
+
+app.post(
+  "/api/admin/audit-logs/purge",
+  requireAdmin,
+  requireRole("super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const beforeDate = String(req.body?.beforeDate ?? "")
+    const deletedCount = await store.purgeAuditLogs(beforeDate)
+    await recordAudit(req, {
+      action: "purge",
+      targetType: "admin_audit_log",
+      reason: `${beforeDate} 이전 로그 ${deletedCount}건 삭제`,
+    })
+    res.json({ deletedCount })
+  },
+)
+
 app.use((_req, res) => {
   res.status(404).json({ message: "요청한 서버 기능을 찾을 수 없습니다." })
 })

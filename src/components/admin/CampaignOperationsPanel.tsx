@@ -16,6 +16,7 @@ import type {
 } from "../../admin/institutionTypes"
 import { useNotice } from "../../admin/useNotice"
 import { subscribeToLeaderboard } from "../../game/liveLeaderboard"
+import { useAdminDialog } from "./AdminDialogProvider"
 import AdminIcon from "./AdminIcon"
 
 const STATUS_LABEL: Record<CampaignStatus, string> = {
@@ -150,6 +151,7 @@ export default function CampaignOperationsPanel({
   onClose: () => void
   onUpdated: (campaign: Campaign) => void
 }) {
+  const { prompt } = useAdminDialog()
   const [tab, setTab] = useState<"overview" | "participants" | "monitor">(
     "overview",
   )
@@ -209,7 +211,14 @@ export default function CampaignOperationsPanel({
       await navigator.clipboard.writeText(link)
       setNotice("배포 링크를 복사했습니다.")
     } catch {
-      window.prompt("아래 배포 링크를 복사하세요.", link)
+      await prompt({
+        title: "배포 링크",
+        message: "아래 링크를 직접 선택해서 복사하세요.",
+        defaultValue: link,
+        readOnly: true,
+        cancelLabel: "닫기",
+        confirmLabel: "닫기",
+      })
     }
   }
 

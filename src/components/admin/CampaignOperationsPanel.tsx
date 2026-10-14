@@ -353,6 +353,7 @@ function ParticipantsTab({
   const [manualNickname, setManualNickname] = useState("")
   const [manualCode, setManualCode] = useState("")
   const [manualDepartment, setManualDepartment] = useState("")
+  const [departmentFilter, setDepartmentFilter] = useState("all")
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -370,6 +371,41 @@ function ParticipantsTab({
   }, [campaignId, setNotice])
 
   useEffect(() => void refresh(), [refresh])
+
+  const departments = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          participants
+            .map((participant) => participant.department.trim())
+            .filter((department) => department.length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "ko")),
+    [participants],
+  )
+
+  const visibleParticipants = useMemo(
+    () =>
+      participants.filter(
+        (participant) =>
+          departmentFilter === "all" ||
+          participant.department.trim() === departmentFilter,
+      ),
+    [participants, departmentFilter],
+  )
+
+  const participantsByDepartment = useMemo(() => {
+    const groups = new Map<string, Participant[]>()
+    for (const participant of visibleParticipants) {
+      const key = participant.department.trim() || "부서 미입력"
+      const bucket = groups.get(key)
+      if (bucket) bucket.push(participant)
+      else groups.set(key, [participant])
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, "ko"),
+    )
+  }, [visibleParticipants])
 
   const handleFile = async (file: File) => {
     const text = await file.text()
@@ -504,33 +540,57 @@ function ParticipantsTab({
         </button>
       </div>
 
+      {participants.length > 0 && (
+        <div className="campaign-participants-filter">
+          <select
+            aria-label="부서 필터"
+            value={departmentFilter}
+            onChange={(event) => setDepartmentFilter(event.target.value)}
+          >
+            <option value="all">전체 부서</option>
+            {departments.map((department) => (
+              <option value={department} key={department}>
+                {department}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <p className="admin-empty">불러오는 중…</p>
       ) : participants.length === 0 ? (
         <p className="admin-empty">등록된 참가자가 없습니다.</p>
       ) : (
-        <div className="ranking-table">
-          {participants.map((participant) => (
-            <article key={participant.id}>
-              <span>
-                <strong>{participant.nickname}</strong>
-                <small>{participant.department || "부서 미입력"}</small>
-              </span>
-              <em>
-                {participant.registeredBy === "csv"
-                  ? "CSV 등록"
-                  : participant.registeredBy === "admin"
-                    ? "수동 등록"
-                    : "본인 입장"}
-              </em>
-              <span>
-                {participant.attempt
-                  ? `${participant.attempt.verifiedScore}점 · ${participant.attempt.answeredCount}문항`
-                  : "미응시"}
-              </span>
-            </article>
-          ))}
-        </div>
+        participantsByDepartment.map(([department, departmentParticipants]) => (
+          <div className="attempt-department-group" key={department}>
+            <div className="attempt-department-heading">
+              <span>{department}</span>
+              <b>{departmentParticipants.length}명</b>
+            </div>
+            <div className="ranking-table">
+              {departmentParticipants.map((participant) => (
+                <article key={participant.id}>
+                  <span>
+                    <strong>{participant.nickname}</strong>
+                  </span>
+                  <em>
+                    {participant.registeredBy === "csv"
+                      ? "CSV 등록"
+                      : participant.registeredBy === "admin"
+                        ? "수동 등록"
+                        : "본인 입장"}
+                  </em>
+                  <span>
+                    {participant.attempt
+                      ? `${participant.attempt.verifiedScore}점 · ${participant.attempt.answeredCount}문항`
+                      : "미응시"}
+                  </span>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))
       )}
     </section>
   )

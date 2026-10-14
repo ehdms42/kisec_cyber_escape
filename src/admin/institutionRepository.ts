@@ -378,7 +378,7 @@ export async function getPublicCampaign(
   const { data, error } = await requireSupabase().rpc("get_campaign_public", {
     p_public_token: token,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   const row = data?.[0]
   if (!row) throw new Error("유효하지 않거나 종료된 배포 링크입니다.")
   return {
@@ -412,7 +412,7 @@ export async function lookupParticipantDepartment(
       p_participant_code: participantCode,
     },
   )
-  if (error) throw error
+  if (error) throw new Error(error.message)
   if (!data) {
     throw new Error("등록되지 않은 참여 코드입니다. 담당자에게 문의해 주세요.")
   }
@@ -489,7 +489,7 @@ export async function startOrResumeAttempt(
       p_nickname: nickname,
     },
   )
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return {
     attemptId: data.attempt_id,
     resumeToken: data.resume_token,
@@ -532,7 +532,7 @@ export async function saveAttemptProgress(
     p_resume_token: session.resumeToken,
     p_state: state,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function recordAttemptAnswer(
@@ -599,7 +599,7 @@ export async function recordAttemptAnswer(
     p_question_ordinal: questionOrdinal,
     p_selected_answer: selectedAnswer,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   const result = data as AnswerResult | null
   if (!result) throw new Error("답안 검증 결과를 받지 못했습니다.")
   announceLeaderboardChange()
@@ -642,7 +642,7 @@ export async function revealHint(
     p_question_ordinal: questionOrdinal,
     p_hint_index: hintIndex,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return {
     hintText: data.hint_text,
     penaltyApplied: data.penalty_applied,
@@ -698,6 +698,6 @@ export async function completeAttempt(
     p_resume_token: session.resumeToken,
     p_state: state,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return data as CompleteAttemptResult
 }

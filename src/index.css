@@ -6280,15 +6280,6 @@ button:focus-visible {
   height: 72px;
 }
 
-.attempt-locked-screen small {
-  color: var(--blue-60);
-  letter-spacing: .08em;
-  margin-top: 10px;
-  font-size: 10px;
-  font-weight: 800;
-  display: block;
-}
-
 .attempt-locked-screen h1 {
   letter-spacing: -.04em;
   margin: 7px 0 0;

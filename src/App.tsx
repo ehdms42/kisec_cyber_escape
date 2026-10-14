@@ -390,7 +390,6 @@ export default function App() {
     return (
       <div className="app-frame attempt-locked-screen">
         <section>
-          <small>배포 링크 확인</small>
           <h1>참여할 수 없는 링크입니다</h1>
           <p>{campaignError}</p>
         </section>

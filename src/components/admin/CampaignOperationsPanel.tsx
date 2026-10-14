@@ -291,7 +291,7 @@ export default function CampaignOperationsPanel({
                 disabled={working}
                 onChange={toggleLeaderboardVisible}
               />
-              <span>참가자에게 실시간 리더보드 공개</span>
+              <span>참가자에게 결과 화면에서 순위 공개</span>
             </label>
 
             <div className="campaign-qr-block">

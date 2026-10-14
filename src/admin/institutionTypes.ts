@@ -99,6 +99,7 @@ export interface PublicCampaign {
   campaignTitle: string
   institutionName: string
   requiredQuestionCount: number
+  leaderboardVisible: boolean
 }
 
 export interface AttemptSession {

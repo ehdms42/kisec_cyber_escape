@@ -3554,9 +3554,9 @@ button:focus-visible {
   overflow: hidden;
 }
 
-/* 실시간 순위 패널이 떠 있는 동안은 모바일에서도 position:fixed 패널이
+/* 순위 패널이 떠 있는 동안은 모바일에서도 position:fixed 패널이
    .app-shell의 overflow:hidden에 잘리지 않도록 풀어준다. */
-.app-shell.has-live-leaderboard.screen-game {
+.app-shell.has-live-leaderboard.screen-result {
   overflow: visible;
 }
 
@@ -5827,7 +5827,7 @@ button:focus-visible {
 }
 
 @media (width >= 900px) {
-  .app-shell.has-live-leaderboard.screen-game {
+  .app-shell.has-live-leaderboard.screen-result {
     width: min(100%, 830px);
     overflow: visible;
   }

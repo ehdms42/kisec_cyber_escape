@@ -373,6 +373,7 @@ export async function getPublicCampaign(
       campaignTitle: campaign.title,
       institutionName: campaign.institutionName,
       requiredQuestionCount: campaign.requiredQuestionCount,
+      leaderboardVisible: campaign.leaderboardVisible,
     }
   }
   const { data, error } = await requireSupabase().rpc("get_campaign_public", {
@@ -386,6 +387,7 @@ export async function getPublicCampaign(
     campaignTitle: row.campaign_title,
     institutionName: row.institution_name,
     requiredQuestionCount: row.required_question_count,
+    leaderboardVisible: row.leaderboard_visible,
   }
 }
 

@@ -3554,6 +3554,12 @@ button:focus-visible {
   overflow: hidden;
 }
 
+/* 실시간 순위 패널이 떠 있는 동안은 모바일에서도 position:fixed 패널이
+   .app-shell의 overflow:hidden에 잘리지 않도록 풀어준다. */
+.app-shell.has-live-leaderboard.screen-game {
+  overflow: visible;
+}
+
 .app-shell > .app-frame, .game-session {
   width: 100%;
   min-width: 0;
@@ -5454,8 +5460,9 @@ button:focus-visible {
   font-weight: 800;
   display: flex;
   position: fixed;
+  /* 하단은 퀴즈 보기/제출 버튼이 차지하고 있어서 상단 우측으로 뺐다. */
   right: max(14px, calc((100vw - 430px) / 2 + 14px));
-  bottom: 15px;
+  top: max(14px, env(safe-area-inset-top, 0px) + 10px);
 }
 
 .live-ranking-mobile-toggle svg {

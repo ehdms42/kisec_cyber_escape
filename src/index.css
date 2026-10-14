@@ -7749,7 +7749,8 @@ button:focus-visible {
   display: flex;
 }
 
-.attempt-filters select {
+.attempt-filters select,
+.campaign-participants-filter select {
   color: var(--blue-95);
   background: #f8fbff;
   border: 1px solid #e0e8f2;
@@ -7757,6 +7758,12 @@ button:focus-visible {
   min-height: 36px;
   padding: 0 10px;
   font-size: 12px;
+}
+
+.campaign-participants-filter {
+  justify-content: flex-end;
+  margin: 4px 0 2px;
+  display: flex;
 }
 
 .attempt-department-group {

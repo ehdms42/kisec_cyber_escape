@@ -345,7 +345,6 @@ export default function App() {
       <div className="app-frame attempt-locked-screen">
         <section>
           <img src="/lock-front-blue-v2.png" alt="" aria-hidden="true" />
-          <small>응시 기록 확인</small>
           <h1>
             {attemptSession?.status === "voided"
               ? "응시가 중지된 기록입니다"

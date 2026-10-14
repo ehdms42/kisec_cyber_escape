@@ -6297,6 +6297,7 @@ button:focus-visible {
 
 .attempt-locked-screen p {
   color: var(--ui-text-muted);
+  text-align: left;
   word-break: keep-all;
   margin: 13px 0 18px;
   font-size: 13px;

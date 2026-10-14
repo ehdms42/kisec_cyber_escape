@@ -45,7 +45,7 @@ export async function getLiveLeaderboard(
     p_security_level: securityLevel,
     p_limit: 100,
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
 
   return (data as LiveRankingRow[]).map((row) => ({
     rank: row.rank,

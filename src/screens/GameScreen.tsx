@@ -495,7 +495,7 @@ export default function GameScreen({
             <strong>
               {questionLoadError
                 ? "문제를 준비하지 못했습니다"
-                : "문제 확인 중…"}
+                : "불러오는 중…"}
             </strong>
             {questionLoadError && <p>{questionLoadError}</p>}
             {questionLoadError && (

@@ -7741,3 +7741,48 @@ button:focus-visible {
   border-color: #d7e0ee;
   box-shadow: none;
 }
+
+/* ---- 응시 현황: 부서별 그룹 헤더 ---------------------------------------- */
+
+.attempt-filters {
+  gap: 8px;
+  display: flex;
+}
+
+.attempt-filters select {
+  color: var(--blue-95);
+  background: #f8fbff;
+  border: 1px solid #e0e8f2;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.attempt-department-group {
+  border-bottom: 1px solid #eef2f8;
+}
+
+.attempt-department-group:last-child {
+  border-bottom: 0;
+}
+
+.attempt-department-heading {
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: #f7f6f3;
+  padding: 9px 20px;
+  display: flex;
+}
+
+.attempt-department-heading span {
+  color: #2e2a24;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.attempt-department-heading b {
+  color: var(--ui-text-muted);
+  font: 600 11px var(--ui-font-number);
+}

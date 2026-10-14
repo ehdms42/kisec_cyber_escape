@@ -7673,3 +7673,71 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- 부서 코드 확인 화면 ------------------------------------------- */
+
+.department-confirm-card {
+  text-align: center;
+}
+
+.department-confirm-value {
+  color: var(--blue-80);
+  background: #eaf2fc;
+  border: 2px solid var(--blue-20);
+  border-radius: var(--ui-radius-md);
+  margin: 18px 0 0;
+  padding: 16px;
+  font: 800 20px/1.3 var(--ui-font);
+  word-break: keep-all;
+}
+
+.department-confirm-actions {
+  gap: 10px;
+  margin-top: 20px;
+  display: flex;
+}
+
+.department-confirm-primary,
+.department-confirm-secondary {
+  width: 100%;
+  min-height: 58px;
+  cursor: pointer;
+  border-radius: var(--ui-radius-md);
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+}
+
+.department-confirm-primary {
+  color: #fff;
+  background: var(--ui-gradient-action);
+  text-shadow: 0 2px 0 var(--blue-80);
+  border: 2px solid #d9edff;
+  box-shadow: var(--ui-shadow-control);
+}
+
+.department-confirm-primary:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--blue-80);
+  transform: translateY(5px);
+}
+
+.department-confirm-secondary {
+  color: var(--blue-70);
+  background: #fff;
+  border: 2px solid var(--blue-20);
+}
+
+.department-confirm-secondary:hover:not(:disabled) {
+  background: #f2f6fd;
+}
+
+.department-confirm-primary:disabled,
+.department-confirm-secondary:disabled {
+  color: #9aa9bd;
+  cursor: not-allowed;
+  background: #dfe7f2;
+  border-color: #d7e0ee;
+  box-shadow: none;
+}

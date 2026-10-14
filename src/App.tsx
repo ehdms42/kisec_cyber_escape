@@ -328,6 +328,7 @@ export default function App() {
       <DepartmentScreen
         initialDepartment={department}
         campaignName={campaign?.institutionName}
+        campaignToken={CAMPAIGN_TOKEN}
         onConfirm={confirmDepartment}
       />
     ),

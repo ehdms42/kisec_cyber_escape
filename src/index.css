@@ -7074,13 +7074,14 @@ button:focus-visible {
 }
 
 .dashboard-card > header .admin-icon {
-  color: var(--ui-text-muted);
+  color: var(--blue-95);
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
 }
 
 .dashboard-card > header h3 {
+  color: var(--blue-95);
   letter-spacing: -.01em;
   margin: 0;
   font-size: 15px;

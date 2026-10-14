@@ -1857,6 +1857,46 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       if (error) throw error
       return data.map(toAuditLog)
     },
+
+    async deleteAuditLog(id) {
+      requireBackend()
+      if (!supabase) {
+        await mutateLocal((database) => {
+          database.auditLogs = database.auditLogs.filter((row) => row.id !== id)
+        })
+        return
+      }
+      const { error } = await supabase
+        .from("admin_audit_logs")
+        .delete()
+        .eq("id", id)
+      if (error) throw error
+    },
+
+    async purgeAuditLogs(beforeIso) {
+      requireBackend()
+      const cutoff = new Date(beforeIso)
+      if (Number.isNaN(cutoff.getTime())) {
+        throw new Error("삭제 기준 날짜를 확인해 주세요.")
+      }
+      if (!supabase) {
+        return mutateLocal((database) => {
+          const kept = database.auditLogs.filter(
+            (row) => new Date(row.created_at) >= cutoff,
+          )
+          const deletedCount = database.auditLogs.length - kept.length
+          database.auditLogs = kept
+          return deletedCount
+        })
+      }
+      const { data, error } = await supabase
+        .from("admin_audit_logs")
+        .delete()
+        .lt("created_at", cutoff.toISOString())
+        .select("id")
+      if (error) throw error
+      return data.length
+    },
   }
 
   return store

@@ -12,6 +12,7 @@ import type {
   QuestionStatus,
 } from "../../admin/types"
 import { useNotice } from "../../admin/useNotice"
+import { useAdminDialog } from "./AdminDialogProvider"
 import DocumentImportPanel from "./DocumentImportPanel"
 import AdminIcon from "./AdminIcon"
 import QuestionEditor from "./QuestionEditor"
@@ -19,6 +20,7 @@ import QuestionEditor from "./QuestionEditor"
 type StatusFilter = "all" | QuestionStatus
 
 export default function QuestionManagement() {
+  const { confirm } = useAdminDialog()
   const [questions, setQuestions] = useState<AdminQuestion[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [search, setSearch] = useState("")
@@ -89,9 +91,12 @@ export default function QuestionManagement() {
   }
 
   const handleDelete = async (question: AdminQuestion) => {
-    const confirmed = window.confirm(
-      `${question.ordinal}번 문제를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
-    )
+    const confirmed = await confirm({
+      title: "문제 삭제",
+      message: `${question.ordinal}번 문제를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
+      confirmLabel: "삭제",
+      tone: "danger",
+    })
     if (!confirmed) return
 
     try {

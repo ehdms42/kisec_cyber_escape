@@ -7,6 +7,7 @@ import {
   type AdminRole,
 } from "../admin/serverApi"
 import AccountManagement from "../components/admin/AccountManagement"
+import AdminDialogProvider from "../components/admin/AdminDialogProvider"
 import AdminIcon from "../components/admin/AdminIcon"
 import AuditLogViewer from "../components/admin/AuditLogViewer"
 import DashboardPanel from "../components/admin/DashboardPanel"
@@ -353,9 +354,11 @@ export default function AdminScreen() {
   )
 
   return (
-    <div className="admin-screen">
-      {adminHeader}
-      {content}
-    </div>
+    <AdminDialogProvider>
+      <div className="admin-screen">
+        {adminHeader}
+        {content}
+      </div>
+    </AdminDialogProvider>
   )
 }

@@ -353,6 +353,7 @@ export default function App() {
           <p>
             {attemptSession?.institutionName ?? campaign?.institutionName} 배포
             기록은 한 번만 완료할 수 있습니다. 기록 수정이 필요하면 담당자에게
+            <br />
             문의해 주세요.
           </p>
           <strong>최종 점수 {score} / 30</strong>

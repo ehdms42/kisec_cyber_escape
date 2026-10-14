@@ -18,6 +18,7 @@ import type {
   PrizeStatus,
   RankingEntry,
 } from "../../admin/rankingTypes"
+import { useNotice } from "../../admin/useNotice"
 import { SECURITY_LEVEL_META } from "../../game/securityLevel"
 import AdminIcon from "./AdminIcon"
 
@@ -48,7 +49,7 @@ export default function RankingManagement() {
   const [awards, setAwards] = useState<PrizeAward[]>([])
   const [campaignId, setCampaignId] = useState("")
   const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
   const [saving, setSaving] = useState(false)
   const [anonymizeExport, setAnonymizeExport] = useState(false)
   const [detailAttemptId, setDetailAttemptId] = useState<string | null>(null)

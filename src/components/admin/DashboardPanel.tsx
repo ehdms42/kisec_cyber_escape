@@ -4,6 +4,7 @@ import type {
   DashboardQuestionAccuracy,
   DashboardSummary,
 } from "../../admin/dashboardRepository"
+import { useNotice } from "../../admin/useNotice"
 import AdminIcon from "./AdminIcon"
 
 function formatMinutesSeconds(totalSeconds: number) {
@@ -43,7 +44,7 @@ function AccuracyRow({ item }: { item: DashboardQuestionAccuracy }) {
 export default function DashboardPanel() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
 
   const refresh = useCallback(async () => {
     setLoading(true)

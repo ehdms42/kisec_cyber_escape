@@ -6,6 +6,7 @@ import {
   type AdminAccount,
 } from "../../admin/accountRepository"
 import type { AdminRole } from "../../admin/serverApi"
+import { useNotice } from "../../admin/useNotice"
 import AdminIcon from "./AdminIcon"
 
 interface RoleOption {
@@ -30,7 +31,7 @@ const ROLE_LABEL: Record<AdminRole, string> = {
 export default function AccountManagement() {
   const [accounts, setAccounts] = useState<AdminAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
   const [formOpen, setFormOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<AdminAccount | null>(
     null,

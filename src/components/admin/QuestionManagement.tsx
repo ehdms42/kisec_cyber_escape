@@ -11,6 +11,7 @@ import type {
   QuestionInput,
   QuestionStatus,
 } from "../../admin/types"
+import { useNotice } from "../../admin/useNotice"
 import DocumentImportPanel from "./DocumentImportPanel"
 import AdminIcon from "./AdminIcon"
 import QuestionEditor from "./QuestionEditor"
@@ -27,7 +28,7 @@ export default function QuestionManagement() {
   )
   const [editorOpen, setEditorOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
 
   const refreshData = useCallback(async () => {
     setLoadingData(true)

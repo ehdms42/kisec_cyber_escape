@@ -69,6 +69,7 @@ export default function InstitutionManagement() {
   const [attemptFilter, setAttemptFilter] = useState<"all" | AttemptStatus>(
     "all",
   )
+  const [departmentFilter, setDepartmentFilter] = useState("all")
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -92,13 +93,45 @@ export default function InstitutionManagement() {
 
   useEffect(() => void refresh(), [refresh])
 
+  const departments = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          attempts
+            .map((attempt) => attempt.department.trim())
+            .filter((department) => department.length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "ko")),
+    [attempts],
+  )
+
   const visibleAttempts = useMemo(
     () =>
-      attemptFilter === "all"
-        ? attempts
-        : attempts.filter((attempt) => attempt.status === attemptFilter),
-    [attemptFilter, attempts],
+      attempts
+        .filter(
+          (attempt) =>
+            attemptFilter === "all" || attempt.status === attemptFilter,
+        )
+        .filter(
+          (attempt) =>
+            departmentFilter === "all" ||
+            attempt.department.trim() === departmentFilter,
+        ),
+    [attemptFilter, departmentFilter, attempts],
   )
+
+  const attemptsByDepartment = useMemo(() => {
+    const groups = new Map<string, AttemptSummary[]>()
+    for (const attempt of visibleAttempts) {
+      const key = attempt.department.trim() || "부서 미입력"
+      const bucket = groups.get(key)
+      if (bucket) bucket.push(attempt)
+      else groups.set(key, [attempt])
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, "ko"),
+    )
+  }, [visibleAttempts])
 
   const removeInstitution = async (institution: Institution) => {
     if (
@@ -342,20 +375,34 @@ export default function InstitutionManagement() {
           <AdminIcon name="monitor" />
           <div>
             <h3>응시 현황</h3>
-            <small>전체 세션 통합</small>
+            <small>전체 세션 통합 · 부서별로 묶어서 표시</small>
           </div>
-          <select
-            aria-label="응시 상태 필터"
-            value={attemptFilter}
-            onChange={(event) =>
-              setAttemptFilter(event.target.value as "all" | AttemptStatus)
-            }
-          >
-            <option value="all">전체 상태</option>
-            <option value="in_progress">진행 중</option>
-            <option value="completed">완료</option>
-            <option value="voided">무효</option>
-          </select>
+          <span className="dashboard-card-header-trailing attempt-filters">
+            <select
+              aria-label="부서 필터"
+              value={departmentFilter}
+              onChange={(event) => setDepartmentFilter(event.target.value)}
+            >
+              <option value="all">전체 부서</option>
+              {departments.map((department) => (
+                <option value={department} key={department}>
+                  {department}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="응시 상태 필터"
+              value={attemptFilter}
+              onChange={(event) =>
+                setAttemptFilter(event.target.value as "all" | AttemptStatus)
+              }
+            >
+              <option value="all">전체 상태</option>
+              <option value="in_progress">진행 중</option>
+              <option value="completed">완료</option>
+              <option value="voided">무효</option>
+            </select>
+          </span>
         </header>
 
         <div className="attempt-list-head" aria-hidden="true">
@@ -368,52 +415,59 @@ export default function InstitutionManagement() {
         {visibleAttempts.length === 0 ? (
           <p className="dashboard-empty-row">표시할 응시 기록이 없습니다.</p>
         ) : (
-          <div className="attempt-list-rows">
-            {visibleAttempts.map((attempt) => (
-              <article className="attempt-row" key={attempt.id}>
-                <span>
-                  <small>
-                    {attempt.institutionName} · {attempt.campaignTitle}
-                  </small>
-                  <strong>{attempt.nickname}</strong>
-                  <small>{attempt.department || "부서 미입력"}</small>
-                </span>
-                <i className={attempt.status}>
-                  {ATTEMPT_STATUS_LABEL[attempt.status]}
-                </i>
-                <b>
-                  {attempt.verifiedScore}점 · {attempt.answeredCount}문항
-                </b>
-                <time dateTime={attempt.lastSeenAt}>
-                  {new Date(attempt.lastSeenAt).toLocaleString("ko-KR")}
-                </time>
-                <div className="attempt-row-actions">
-                  {attempt.status !== "in_progress" && (
-                    <button
-                      type="button"
-                      onClick={() => changeAttempt(attempt, "resume")}
-                    >
-                      재개
-                    </button>
-                  )}
-                  {attempt.status !== "voided" && (
-                    <button
-                      type="button"
-                      onClick={() => changeAttempt(attempt, "void")}
-                    >
-                      무효
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => changeAttempt(attempt, "reset")}
-                  >
-                    초기화
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          attemptsByDepartment.map(([department, departmentAttempts]) => (
+            <div className="attempt-department-group" key={department}>
+              <div className="attempt-department-heading">
+                <span>{department}</span>
+                <b>{departmentAttempts.length}명</b>
+              </div>
+              <div className="attempt-list-rows">
+                {departmentAttempts.map((attempt) => (
+                  <article className="attempt-row" key={attempt.id}>
+                    <span>
+                      <small>
+                        {attempt.institutionName} · {attempt.campaignTitle}
+                      </small>
+                      <strong>{attempt.nickname}</strong>
+                    </span>
+                    <i className={attempt.status}>
+                      {ATTEMPT_STATUS_LABEL[attempt.status]}
+                    </i>
+                    <b>
+                      {attempt.verifiedScore}점 · {attempt.answeredCount}문항
+                    </b>
+                    <time dateTime={attempt.lastSeenAt}>
+                      {new Date(attempt.lastSeenAt).toLocaleString("ko-KR")}
+                    </time>
+                    <div className="attempt-row-actions">
+                      {attempt.status !== "in_progress" && (
+                        <button
+                          type="button"
+                          onClick={() => changeAttempt(attempt, "resume")}
+                        >
+                          재개
+                        </button>
+                      )}
+                      {attempt.status !== "voided" && (
+                        <button
+                          type="button"
+                          onClick={() => changeAttempt(attempt, "void")}
+                        >
+                          무효
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => changeAttempt(attempt, "reset")}
+                      >
+                        초기화
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </section>
 

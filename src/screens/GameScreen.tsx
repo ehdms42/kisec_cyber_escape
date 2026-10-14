@@ -687,7 +687,6 @@ export default function GameScreen({
           {phase === "quiz" && question && questionParts && (
             <section className="object-quiz-panel">
               <div className="question-progress">
-                <span>{question.category}</span>
                 <b>
                   문항 {questionStep + 1} / {activePuzzle.questions.length}
                 </b>

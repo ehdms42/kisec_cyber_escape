@@ -3,7 +3,7 @@ export const DOOR_CODE = [7, 2, 9, 4] as const
 export const COINS_PER_CORRECT_ANSWER = 10
 
 export type PuzzleId = "console" | "patch" | "backup" | "ups"
-export type GamePhase = "room" | "quiz" | "reveal" | "keypad"
+export type GamePhase = "room" | "quiz" | "reveal" | "keypad" | "review"
 
 export interface Puzzle {
   id: PuzzleId

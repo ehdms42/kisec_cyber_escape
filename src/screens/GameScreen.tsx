@@ -35,6 +35,7 @@ interface GameScreenProps {
     questionOrdinal: number,
     hintIndex: number,
   ) => Promise<HintRevealResult>
+  onCheckWrongAnswers?: () => Promise<number[]>
 }
 
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
@@ -46,6 +47,7 @@ export default function GameScreen({
   onProgress,
   onAnswer,
   onRevealHint,
+  onCheckWrongAnswers,
 }: GameScreenProps) {
   const initial = useRef(
     initialProgress
@@ -84,9 +86,13 @@ export default function GameScreen({
   const [gameQuestions, setGameQuestions] = useState<Question[]>([])
   const [questionLoadError, setQuestionLoadError] = useState("")
   const [questionLoadKey, setQuestionLoadKey] = useState(0)
+  const [reviewOrdinals, setReviewOrdinals] = useState<number[]>([])
+  const [reviewIndex, setReviewIndex] = useState(0)
   const roomViewportRef = useRef<HTMLDivElement>(null)
   const completionTimerRef = useRef<number | null>(null)
   const answerRequestRef = useRef(0)
+  const localWrongOrdinalsRef = useRef<Set<number>>(new Set())
+  const localAnsweredOrdinalsRef = useRef<Set<number>>(new Set())
 
   const activePuzzle = PUZZLES.find((puzzle) => puzzle.id === activeId) ?? null
   const focusedPuzzle =
@@ -97,6 +103,14 @@ export default function GameScreen({
   const questionIndex = activePuzzle?.questions[questionStep] ?? 0
   const question = gameQuestions[questionIndex]
   const questionParts = question ? splitQuestion(question.question) : null
+  const reviewQuestion =
+    phase === "review"
+      ? gameQuestions.find((item) => item.id === reviewOrdinals[reviewIndex])
+      : undefined
+  const reviewQuestionParts = reviewQuestion
+    ? splitQuestion(reviewQuestion.question)
+    : null
+  const activeQuestion = phase === "review" ? reviewQuestion : question
   const answered = selectedAnswer !== null
   const level = activePuzzle
     ? PUZZLES.findIndex((puzzle) => puzzle.id === activePuzzle.id) + 1
@@ -228,16 +242,16 @@ export default function GameScreen({
   }
 
   const chooseAnswer = async (index: number) => {
-    if (answered || answerPending || !question) return
+    if (answered || answerPending || !activeQuestion) return
 
     const request = ++answerRequestRef.current
     setAnswerPending(true)
     setAnswerSubmitError("")
     try {
       const verification = onAnswer
-        ? await onAnswer(question.id, index)
+        ? await onAnswer(activeQuestion.id, index)
         : (await import("../data/questionAnswers")).isFallbackAnswerCorrect(
-            question.id,
+            activeQuestion.id,
             index,
           )
       if (answerRequestRef.current !== request) return
@@ -248,8 +262,16 @@ export default function GameScreen({
       )
       setAnswerCorrect(correct)
       if (typeof verification === "boolean") {
-        setAnsweredCount((value) => value + 1)
-        if (correct) setScore((value) => value + 1)
+        const isRetry = localAnsweredOrdinalsRef.current.has(activeQuestion.id)
+        localAnsweredOrdinalsRef.current.add(activeQuestion.id)
+        if (correct) localWrongOrdinalsRef.current.delete(activeQuestion.id)
+        else localWrongOrdinalsRef.current.add(activeQuestion.id)
+        if (!isRetry) {
+          setAnsweredCount((value) => value + 1)
+          if (correct) setScore((value) => value + 1)
+        } else if (correct) {
+          setScore((value) => value + 1)
+        }
       } else {
         setAnsweredCount(verification.answeredCount)
         setScore(verification.verifiedScore)
@@ -267,15 +289,15 @@ export default function GameScreen({
   }
 
   const revealHintAt = async (hintIndex: number) => {
-    if (!question || !onRevealHint || hintPending) return
-    if (revealedHints[question.id]?.[hintIndex] !== undefined) return
+    if (!activeQuestion || !onRevealHint || hintPending) return
+    if (revealedHints[activeQuestion.id]?.[hintIndex] !== undefined) return
     setHintPending(true)
     try {
-      const result = await onRevealHint(question.id, hintIndex)
+      const result = await onRevealHint(activeQuestion.id, hintIndex)
       setRevealedHints((current) => ({
         ...current,
-        [question.id]: {
-          ...(current[question.id] ?? {}),
+        [activeQuestion.id]: {
+          ...(current[activeQuestion.id] ?? {}),
           [hintIndex]: result.hintText,
         },
       }))
@@ -320,20 +342,62 @@ export default function GameScreen({
     )
   }
 
+  const checkWrongAnswers = async () => {
+    if (onCheckWrongAnswers) return onCheckWrongAnswers()
+    return Array.from(localWrongOrdinalsRef.current).sort((a, b) => a - b)
+  }
+
+  const beginUnlockAndFinish = () => {
+    setIsUnlocking(true)
+    const timer = window.setTimeout(() => {
+      if (completionTimerRef.current !== timer) return
+      completionTimerRef.current = null
+      Promise.resolve(onFinish(score)).catch(() => {
+        setIsUnlocking(false)
+        setHasCodeError(true)
+      })
+    }, 850)
+    completionTimerRef.current = timer
+  }
+
+  const proceedPastKeypad = async () => {
+    try {
+      const wrong = await checkWrongAnswers()
+      if (wrong.length > 0) {
+        setReviewOrdinals(wrong)
+        setReviewIndex(0)
+        setSelectedAnswer(null)
+        setAnswerCorrect(null)
+        setAnswerSubmitError("")
+        setPhase("review")
+        return
+      }
+    } catch {
+      // 확인에 실패해도 일단 진행한다 — 서버가 complete_attempt에서 다시 막아준다.
+    }
+    beginUnlockAndFinish()
+  }
+
+  const advanceReview = () => {
+    if (!answered) return
+    if (reviewIndex < reviewOrdinals.length - 1) {
+      setReviewIndex((value) => value + 1)
+      setSelectedAnswer(null)
+      setAnswerCorrect(null)
+      setAnswerSubmitError("")
+      return
+    }
+    setSelectedAnswer(null)
+    setAnswerCorrect(null)
+    setAnswerSubmitError("")
+    void proceedPastKeypad()
+  }
+
   const submitCode = () => {
     if (codeInput.length !== DOOR_CODE.length || isUnlocking) return
 
     if (codeInput.every((digit, index) => digit === DOOR_CODE[index])) {
-      setIsUnlocking(true)
-      const timer = window.setTimeout(() => {
-        if (completionTimerRef.current !== timer) return
-        completionTimerRef.current = null
-        Promise.resolve(onFinish(score)).catch(() => {
-          setIsUnlocking(false)
-          setHasCodeError(true)
-        })
-      }, 850)
-      completionTimerRef.current = timer
+      void proceedPastKeypad()
       return
     }
 
@@ -357,6 +421,14 @@ export default function GameScreen({
         completionTimerRef.current = null
       }
       setIsUnlocking(false)
+      setPhase("room")
+      return
+    }
+
+    if (phase === "review") {
+      setSelectedAnswer(null)
+      setAnswerCorrect(null)
+      setAnswerSubmitError("")
       setPhase("room")
       return
     }
@@ -760,6 +832,57 @@ export default function GameScreen({
               </button>
             </section>
           )}
+        </main>
+      )}
+
+      {phase === "review" && reviewQuestion && reviewQuestionParts && (
+        <main className="review-mission scene-enter">
+          <div className="review-banner">
+            <img src="/lock-front-blue-v2.png" alt="" aria-hidden="true" />
+            <div>
+              <strong>오답을 다시 풀어야 탈출할 수 있어요</strong>
+              <small>
+                오답 {reviewIndex + 1} / {reviewOrdinals.length}
+              </small>
+            </div>
+          </div>
+          <section className="object-quiz-panel">
+            <QuestionPanel
+              question={reviewQuestion}
+              parts={reviewQuestionParts}
+              selectedAnswer={selectedAnswer}
+              answerCorrect={answerCorrect}
+              answerPending={answerPending}
+              onSelectAnswer={chooseAnswer}
+              revealedHints={revealedHints[reviewQuestion.id] ?? {}}
+              hintPending={hintPending}
+              onRevealHint={onRevealHint ? revealHintAt : undefined}
+            />
+            {answerSubmitError && (
+              <p className="admin-form-error" role="alert">
+                {answerSubmitError}
+              </p>
+            )}
+            {answered && (
+              <div
+                className={`mission-feedback ${
+                  answerCorrect ? "correct" : "wrong"
+                }`}
+              >
+                <strong>{answerCorrect ? "정답" : "오답"}</strong>
+                <p>{reviewQuestion.explanation}</p>
+              </div>
+            )}
+            <button
+              className="room-primary"
+              onClick={advanceReview}
+              disabled={!answered || answerPending}
+            >
+              {reviewIndex === reviewOrdinals.length - 1
+                ? "확인 완료"
+                : "다음 오답"}
+            </button>
+          </section>
         </main>
       )}
 

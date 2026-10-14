@@ -1700,6 +1700,47 @@ button:focus-visible {
   border-color: #c9d6e8;
 }
 
+.review-mission {
+  min-height: calc(100dvh - 70px);
+  padding: 18px 20px 28px;
+}
+
+.review-mission .object-quiz-panel {
+  min-height: auto;
+  animation: none;
+}
+
+.review-banner {
+  color: var(--blue-95);
+  background: #fff4e0;
+  border: 1px solid #f0d8a6;
+  border-radius: var(--ui-radius-md);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+  display: flex;
+}
+
+.review-banner img {
+  object-fit: contain;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+
+.review-banner strong {
+  font-size: 14px;
+  display: block;
+}
+
+.review-banner small {
+  color: var(--ui-text-muted);
+  margin-top: 2px;
+  font-size: 11px;
+  display: block;
+}
+
 .mission-feedback {
   margin-top: 14px;
   padding: 13px 14px;

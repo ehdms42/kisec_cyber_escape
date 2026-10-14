@@ -6265,7 +6265,7 @@ button:focus-visible {
 }
 
 .attempt-locked-screen section {
-  text-align: center;
+  text-align: left;
   background: #f8fbff;
   border: 2px solid var(--blue-30);
   border-radius: var(--ui-radius-lg);
@@ -6308,13 +6308,20 @@ button:focus-visible {
   color: var(--blue-70);
   background: #e6effd;
   border-radius: var(--ui-radius-sm);
+  width: fit-content;
+  margin-bottom: 8px;
   padding: 9px 13px;
   font: 800 14px var(--ui-font-number);
-  display: inline-block;
+  display: block;
+}
+
+.attempt-locked-screen strong:last-of-type {
+  margin-bottom: 0;
 }
 
 .attempt-locked-screen a {
   color: #fff;
+  text-align: center;
   background: var(--ui-gradient-action);
   border: 2px solid #d9edff;
   border-radius: var(--ui-radius-md);

@@ -5812,19 +5812,6 @@ button:focus-visible {
   line-height: 1.5;
 }
 
-.question-progress span {
-  color: var(--blue-60);
-  background: var(--blue-10);
-  border-radius: 5px;
-  padding: 3px 6px;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.question-progress {
-  justify-content: space-between;
-}
-
 @keyframes live-rank-shift {
   from {
     opacity: .65;

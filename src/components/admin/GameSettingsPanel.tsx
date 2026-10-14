@@ -5,6 +5,7 @@ import {
   type GameDifficulty,
   type GameSettings,
 } from "../../admin/gameSettingsRepository"
+import { useNotice } from "../../admin/useNotice"
 
 const DIFFICULTY_LABEL: Record<GameDifficulty, string> = {
   easy: "쉬움",
@@ -16,7 +17,7 @@ export default function GameSettingsPanel() {
   const [value, setValue] = useState<GameSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
 
   useEffect(() => {
     getGameSettings()

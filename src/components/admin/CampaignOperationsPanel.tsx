@@ -14,6 +14,7 @@ import type {
   Participant,
   ParticipantImportResult,
 } from "../../admin/institutionTypes"
+import { useNotice } from "../../admin/useNotice"
 import { subscribeToLeaderboard } from "../../game/liveLeaderboard"
 import AdminIcon from "./AdminIcon"
 
@@ -152,7 +153,7 @@ export default function CampaignOperationsPanel({
   const [tab, setTab] = useState<"overview" | "participants" | "monitor">(
     "overview",
   )
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
   const [working, setWorking] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState("")
   const link = `${window.location.origin}/?campaign=${campaign.publicToken}`

@@ -7,6 +7,7 @@ import {
 } from "react"
 import {
   adjustAttempt,
+  deleteInstitution,
   listAttempts,
   listCampaigns,
   listInstitutions,
@@ -19,6 +20,7 @@ import type {
   Campaign,
   Institution,
 } from "../../admin/institutionTypes"
+import { useNotice } from "../../admin/useNotice"
 import AdminIcon from "./AdminIcon"
 import CampaignOperationsPanel from "./CampaignOperationsPanel"
 
@@ -55,7 +57,7 @@ export default function InstitutionManagement() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [attempts, setAttempts] = useState<AttemptSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
   const [institutionFormOpen, setInstitutionFormOpen] = useState(false)
   const [campaignFormOpen, setCampaignFormOpen] = useState(false)
   const [editingInstitution, setEditingInstitution] =
@@ -97,6 +99,25 @@ export default function InstitutionManagement() {
         : attempts.filter((attempt) => attempt.status === attemptFilter),
     [attemptFilter, attempts],
   )
+
+  const removeInstitution = async (institution: Institution) => {
+    if (
+      !window.confirm(
+        `${institution.name} 기관을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
+      )
+    ) {
+      return
+    }
+    try {
+      await deleteInstitution(institution.id)
+      setNotice(`${institution.name} 기관을 삭제했습니다.`)
+      await refresh()
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "기관을 삭제하지 못했습니다.",
+      )
+    }
+  }
 
   const copyLink = async (campaign: Campaign) => {
     const link = `${window.location.origin}/?campaign=${campaign.publicToken}`
@@ -237,16 +258,25 @@ export default function InstitutionManagement() {
                   <i className={institution.active ? "published" : "draft"}>
                     {institution.active ? "운영" : "중지"}
                   </i>
-                  <button
-                    type="button"
-                    className="dashboard-card-row-action"
-                    onClick={() => {
-                      setEditingInstitution(institution)
-                      setInstitutionFormOpen(true)
-                    }}
-                  >
-                    설정
-                  </button>
+                  <span className="dashboard-card-row-buttons">
+                    <button
+                      type="button"
+                      className="dashboard-card-row-action"
+                      onClick={() => {
+                        setEditingInstitution(institution)
+                        setInstitutionFormOpen(true)
+                      }}
+                    >
+                      설정
+                    </button>
+                    <button
+                      type="button"
+                      className="dashboard-card-row-action is-danger"
+                      onClick={() => removeInstitution(institution)}
+                    >
+                      삭제
+                    </button>
+                  </span>
                 </div>
               ))}
             </div>

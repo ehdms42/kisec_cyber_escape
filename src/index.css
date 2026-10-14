@@ -7458,6 +7458,14 @@ button:focus-visible {
   background: #eaf2fc;
 }
 
+.dashboard-card-row-action.is-danger {
+  color: #ad5360;
+}
+
+.dashboard-card-row-action.is-danger:hover {
+  background: #fbeaec;
+}
+
 .dashboard-card-row-buttons {
   gap: 2px;
   flex: 0 0 auto;

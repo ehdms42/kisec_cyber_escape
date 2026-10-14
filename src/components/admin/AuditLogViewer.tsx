@@ -3,6 +3,7 @@ import {
   listAuditLogs,
   type AuditLogEntry,
 } from "../../admin/auditLogRepository"
+import { useNotice } from "../../admin/useNotice"
 import AdminIcon from "./AdminIcon"
 
 const TARGET_TYPE_OPTIONS = [
@@ -40,7 +41,7 @@ const ACTION_LABEL: Record<string, string> = {
 export default function AuditLogViewer() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState("")
+  const [notice, setNotice] = useNotice()
   const [targetType, setTargetType] = useState("")
   const [adminLoginId, setAdminLoginId] = useState("")
 

@@ -4396,7 +4396,7 @@ button:focus-visible {
 
 .game-question-gate section {
   color: var(--blue-95);
-  text-align: center;
+  text-align: left;
   background: #f8fbff;
   border: 2px solid var(--blue-30);
   border-radius: var(--ui-radius-md);
@@ -4427,13 +4427,16 @@ button:focus-visible {
 
 .game-question-gate button {
   color: #fff;
+  text-align: center;
   background: var(--ui-gradient-action);
   border-radius: var(--ui-radius-sm);
+  width: 100%;
   margin-top: 17px;
   padding: 10px 18px;
   font-size: 12px;
   font-weight: 800;
   box-shadow: 0 3px 0 var(--blue-80);
+  display: block;
 }
 
 .admin-stat-grid {

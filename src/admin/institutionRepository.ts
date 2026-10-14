@@ -551,23 +551,16 @@ export async function recordAttemptAnswer(
       {},
     )
     const attemptAnswers = answers[session.attemptId] ?? {}
-    if (String(questionOrdinal) in attemptAnswers) {
-      const storedAnswer = attemptAnswers[String(questionOrdinal)]
-      const answeredCount = Object.keys(attemptAnswers).length
-      const verifiedScore = Object.entries(attemptAnswers).filter(
-        ([ordinal, answer]) => isFallbackAnswerCorrect(Number(ordinal), answer),
-      ).length
-      return {
-        accepted: false,
-        correct: isFallbackAnswerCorrect(questionOrdinal, storedAnswer),
-        selectedAnswer: storedAnswer,
-        verifiedScore,
-        answeredCount,
-      }
+    const existingAnswer = attemptAnswers[String(questionOrdinal)]
+    const alreadyCorrect =
+      existingAnswer !== undefined &&
+      isFallbackAnswerCorrect(questionOrdinal, existingAnswer)
+
+    if (!alreadyCorrect) {
+      attemptAnswers[String(questionOrdinal)] = selectedAnswer
+      answers[session.attemptId] = attemptAnswers
+      writeDemo(DEMO_ANSWER_KEY, answers)
     }
-    attemptAnswers[String(questionOrdinal)] = selectedAnswer
-    answers[session.attemptId] = attemptAnswers
-    writeDemo(DEMO_ANSWER_KEY, answers)
     const answeredCount = Object.keys(attemptAnswers).length
     const verifiedScore = Object.entries(attemptAnswers).filter(
       ([ordinal, answer]) => isFallbackAnswerCorrect(Number(ordinal), answer),
@@ -586,9 +579,11 @@ export async function recordAttemptAnswer(
       verifiedScore,
     }))
     const result = {
-      accepted: true,
-      correct: isFallbackAnswerCorrect(questionOrdinal, selectedAnswer),
-      selectedAnswer,
+      accepted: !alreadyCorrect,
+      correct: alreadyCorrect
+        ? true
+        : isFallbackAnswerCorrect(questionOrdinal, selectedAnswer),
+      selectedAnswer: alreadyCorrect ? existingAnswer : selectedAnswer,
       verifiedScore,
       answeredCount,
     }
@@ -612,6 +607,35 @@ export async function recordAttemptAnswer(
     verifiedScore: result.verified_score,
     answeredCount: result.answered_count,
   }
+}
+
+export async function getWrongQuestionOrdinals(
+  session: AttemptSession,
+): Promise<number[]> {
+  if (!session.resumeToken || session.status !== "in_progress") return []
+  if (isAdminDemoMode) {
+    const answers = readDemo<Record<string, Record<string, number>>>(
+      DEMO_ANSWER_KEY,
+      {},
+    )
+    const attemptAnswers = answers[session.attemptId] ?? {}
+    return Object.entries(attemptAnswers)
+      .filter(
+        ([ordinal, answer]) =>
+          !isFallbackAnswerCorrect(Number(ordinal), answer),
+      )
+      .map(([ordinal]) => Number(ordinal))
+      .sort((a, b) => a - b)
+  }
+  const { data, error } = await requireSupabase().rpc(
+    "get_attempt_wrong_ordinals",
+    {
+      p_attempt_id: session.attemptId,
+      p_resume_token: session.resumeToken,
+    },
+  )
+  if (error) throw new Error(error.message)
+  return Array.isArray(data) ? data as number[] : []
 }
 
 export async function revealHint(
@@ -662,6 +686,9 @@ export async function completeAttempt(
     const attempt = demoAttempts().find((item) => item.id === session.attemptId)
     if (!attempt || attempt.answeredCount < session.requiredQuestionCount) {
       throw new Error("필수 문항 응답이 모두 기록되지 않았습니다.")
+    }
+    if ((await getWrongQuestionOrdinals(session)).length > 0) {
+      throw new Error("오답을 모두 맞혀야 탈출할 수 있습니다.")
     }
     const completedAt = now()
     const securityLevel = securityLevelFromResult(

@@ -319,6 +319,12 @@ export default function App() {
     [attemptSession],
   )
 
+  const checkWrongAnswers = useCallback(async () => {
+    if (!attemptSession) return []
+    const api = await loadAttemptApi()
+    return api.getWrongQuestionOrdinals(attemptSession)
+  }, [attemptSession])
+
   const canShowResultLeaderboard = Boolean(
     attemptSession && campaign && CAMPAIGN_TOKEN && campaign.leaderboardVisible,
   )
@@ -449,6 +455,7 @@ export default function App() {
             onProgress={attemptSession ? persistProgress : undefined}
             onAnswer={attemptSession ? persistAnswer : undefined}
             onRevealHint={attemptSession ? persistHintReveal : undefined}
+            onCheckWrongAnswers={attemptSession ? checkWrongAnswers : undefined}
           />
         </div>
       )}

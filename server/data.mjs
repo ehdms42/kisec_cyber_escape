@@ -1175,7 +1175,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       const { data, error } = await supabase
         .from("prize_awards")
         .select(
-          "id, campaign_id, attempt_id, status, note, selected_at, delivered_at, campaigns(title, institutions(name)), game_attempts(participants(nickname, department))",
+          "id, campaign_id, attempt_id, status, note, selected_at, delivered_at, campaigns(title, institutions(name)), game_attempts!attempt_id(participants(nickname, department))",
         )
         .order("selected_at", { ascending: false })
       if (error) throw error

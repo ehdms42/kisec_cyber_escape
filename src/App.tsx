@@ -319,6 +319,19 @@ export default function App() {
     [attemptSession],
   )
 
+  const canShowResultLeaderboard = Boolean(
+    attemptSession && campaign && CAMPAIGN_TOKEN && campaign.leaderboardVisible,
+  )
+
+  const resultScreen = (
+    <ResultScreen
+      score={score}
+      securityLevel={securityLevel}
+      onBack={goBackFromResult}
+      onHome={goHome}
+    />
+  )
+
   const page = {
     title: <TitleScreen onStart={() => setScreen("nickname")} />,
     nickname: (
@@ -334,14 +347,24 @@ export default function App() {
     ),
     story: <OnboardingScreen nickname={nickname} onComplete={startGame} />,
     game: null,
-    result: (
-      <ResultScreen
-        score={score}
-        securityLevel={securityLevel}
-        onBack={goBackFromResult}
-        onHome={goHome}
-      />
-    ),
+    result:
+      canShowResultLeaderboard &&
+      attemptSession &&
+      campaign &&
+      CAMPAIGN_TOKEN ? (
+        <div className="game-live-layout">
+          <div className="game-session">{resultScreen}</div>
+          <LiveLeaderboard
+            campaignId={campaign.campaignId}
+            publicToken={CAMPAIGN_TOKEN}
+            currentAttemptId={attemptSession.attemptId}
+            currentNickname={attemptSession.nickname}
+            currentSecurityLevel={attemptSession.securityLevel}
+          />
+        </div>
+      ) : (
+        resultScreen
+      ),
     locked: (
       <div className="app-frame attempt-locked-screen">
         <section>
@@ -406,9 +429,7 @@ export default function App() {
     )
   }
 
-  const showLiveLeaderboard = Boolean(
-    attemptSession && campaign && CAMPAIGN_TOKEN,
-  )
+  const showLiveLeaderboard = canShowResultLeaderboard && screen === "result"
 
   return (
     <div
@@ -417,29 +438,18 @@ export default function App() {
       }`}
     >
       {hasGameSession && (
-        <div className="game-live-layout" hidden={screen !== "game"}>
-          <div className="game-session">
-            <GameScreen
-              key={gameKey}
-              onFinish={finishGame}
-              onExit={goBackFromGame}
-              initialProgress={
-                attemptSession ? { ...latestProgress.current } : null
-              }
-              onProgress={attemptSession ? persistProgress : undefined}
-              onAnswer={attemptSession ? persistAnswer : undefined}
-              onRevealHint={attemptSession ? persistHintReveal : undefined}
-            />
-          </div>
-          {attemptSession && campaign && CAMPAIGN_TOKEN && (
-            <LiveLeaderboard
-              campaignId={campaign.campaignId}
-              publicToken={CAMPAIGN_TOKEN}
-              currentAttemptId={attemptSession.attemptId}
-              currentNickname={attemptSession.nickname}
-              currentSecurityLevel={attemptSession.securityLevel}
-            />
-          )}
+        <div className="game-session" hidden={screen !== "game"}>
+          <GameScreen
+            key={gameKey}
+            onFinish={finishGame}
+            onExit={goBackFromGame}
+            initialProgress={
+              attemptSession ? { ...latestProgress.current } : null
+            }
+            onProgress={attemptSession ? persistProgress : undefined}
+            onAnswer={attemptSession ? persistAnswer : undefined}
+            onRevealHint={attemptSession ? persistHintReveal : undefined}
+          />
         </div>
       )}
       {sessionWarning && (

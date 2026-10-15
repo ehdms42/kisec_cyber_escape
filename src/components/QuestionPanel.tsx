@@ -37,13 +37,19 @@ export default function QuestionPanel({
         <h2 className="question-title">{parts.prompt}</h2>
         {parts.details.length > 0 && (
           <ul className="question-details">
-            {parts.details.map((line, index) => {
+            {parts.details.map((line) => {
               const match = line.match(DETAIL_LABEL_PATTERN)
 
               return (
                 <li key={line}>
-                  <b>{index + 1}.</b>
-                  <span>{match ? match[2] : line}</span>
+                  {match ? (
+                    <>
+                      <b>{match[1]}</b>
+                      <span>{match[2]}</span>
+                    </>
+                  ) : (
+                    <span>{line}</span>
+                  )}
                 </li>
               )
             })}

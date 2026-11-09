@@ -27,6 +27,7 @@ const EMPTY_DATABASE = {
   attempts: [],
   prizeAwards: [],
   revokedSessions: [],
+  campaignQuestions: [],
   attemptAdjustments: [],
   prizeAwardEvents: [],
   adminAccounts: [],
@@ -133,6 +134,17 @@ function toCampaign(row) {
     endsAt: row.ends_at,
     requiredQuestionCount: row.required_question_count,
     createdAt: row.created_at,
+  }
+}
+
+function toCampaignQuestion(row, sortOrder) {
+  return {
+    questionId: row.id,
+    ordinal: row.ordinal,
+    category: row.category,
+    prompt: row.prompt,
+    status: row.status,
+    sortOrder,
   }
 }
 
@@ -636,8 +648,19 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
 
     async deleteQuestion(id) {
       requireBackend()
+      const inCampaignError = () =>
+        Object.assign(
+          new Error(
+            "기관 세션의 문항 구성에 포함된 문제는 삭제할 수 없습니다. 세션 문항 구성에서 먼저 빼 주세요.",
+          ),
+          { status: 409 },
+        )
       if (!supabase) {
         await mutateLocal((database) => {
+          if (
+            database.campaignQuestions.some((item) => item.question_id === id)
+          )
+            throw inCampaignError()
           database.questions = database.questions.filter(
             (question) => question.id !== id,
           )
@@ -645,6 +668,11 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         return
       }
       const { error } = await supabase.from("questions").delete().eq("id", id)
+      if (
+        error?.code === "23503" &&
+        `${error.message} ${error.details ?? ""}`.includes("campaign_questions")
+      )
+        throw inCampaignError()
       if (error) throw error
     },
 
@@ -1021,11 +1049,106 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
           database.campaigns = database.campaigns.filter(
             (item) => item.id !== id,
           )
+          database.campaignQuestions = database.campaignQuestions.filter(
+            (item) => item.campaign_id !== id,
+          )
         })
         return
       }
       const { error } = await supabase.from("campaigns").delete().eq("id", id)
       if (error) throw error
+    },
+
+    async listCampaignQuestions(campaignId) {
+      requireBackend()
+      if (!supabase) {
+        const database = await readLocal()
+        return database.campaignQuestions
+          .filter((item) => item.campaign_id === campaignId)
+          .sort((left, right) => left.sort_order - right.sort_order)
+          .flatMap((item) => {
+            const question = database.questions.find(
+              (row) => row.id === item.question_id,
+            )
+            return question
+              ? [toCampaignQuestion(question, item.sort_order)]
+              : []
+          })
+      }
+      const { data, error } = await supabase
+        .from("campaign_questions")
+        .select("sort_order, questions(id, ordinal, category, prompt, status)")
+        .eq("campaign_id", campaignId)
+        .order("sort_order")
+      if (error) throw error
+      return data.map((row) =>
+        toCampaignQuestion(row.questions, row.sort_order),
+      )
+    },
+
+    async setCampaignQuestions(campaignId, questionIds) {
+      requireBackend()
+      if (
+        !Array.isArray(questionIds) ||
+        !questionIds.every((id) => typeof id === "string" && id)
+      ) {
+        throw new Error("세션 문항 목록을 확인해 주세요.")
+      }
+      if (!supabase) {
+        await mutateLocal((database) => {
+          if (!database.campaigns.some((item) => item.id === campaignId)) {
+            const error = new Error("세션을 찾을 수 없습니다.")
+            error.status = 404
+            throw error
+          }
+          if (
+            database.attempts.some((item) => item.campaign_id === campaignId)
+          ) {
+            const error = new Error(
+              "응시 기록이 있는 세션은 문항 구성을 바꿀 수 없습니다.",
+            )
+            error.status = 409
+            throw error
+          }
+          if (questionIds.length > 100)
+            throw new Error("세션 문항은 100개 이하로 구성해 주세요.")
+          if (new Set(questionIds).size !== questionIds.length)
+            throw new Error("같은 문항이 중복으로 선택되었습니다.")
+          const published = new Set(
+            database.questions
+              .filter((row) => row.status === "published")
+              .map((row) => row.id),
+          )
+          if (!questionIds.every((id) => published.has(id)))
+            throw new Error("공개된 문항만 세션에 넣을 수 있습니다.")
+          database.campaignQuestions = [
+            ...database.campaignQuestions.filter(
+              (item) => item.campaign_id !== campaignId,
+            ),
+            ...questionIds.map((questionId, index) => ({
+              campaign_id: campaignId,
+              question_id: questionId,
+              sort_order: index + 1,
+              created_at: now(),
+            })),
+          ]
+          const campaign = database.campaigns.find(
+            (item) => item.id === campaignId,
+          )
+          campaign.required_question_count = questionIds.length || 30
+        })
+      } else {
+        const { error } = await supabase.rpc("set_campaign_questions", {
+          p_campaign_id: campaignId,
+          p_question_ids: questionIds,
+        })
+        if (error)
+          throw Object.assign(new Error(error.message), { status: 400 })
+      }
+      return {
+        campaign: await store.getCampaignById(campaignId),
+        questions: await store.listCampaignQuestions(campaignId),
+      }
     },
 
     async listAttempts() {

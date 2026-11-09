@@ -66,6 +66,7 @@ export default function App() {
   )
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel | null>(null)
   const [score, setScore] = useState(0)
+  const [questionTotal, setQuestionTotal] = useState(QUIZ_LENGTH)
   const [gameKey, setGameKey] = useState(0)
   const [hasGameSession, setHasGameSession] = useState(false)
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null)
@@ -135,9 +136,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const finishGame = async (finalScore: number) => {
+  const finishGame = async (finalScore: number, finalQuestionTotal: number) => {
     let resultScore = finalScore
-    let resultSecurityLevel = securityLevelFromResult(finalScore, QUIZ_LENGTH)
+    let resultSecurityLevel = securityLevelFromResult(
+      finalScore,
+      finalQuestionTotal,
+    )
     if (attemptSession) {
       let result
       try {
@@ -177,6 +181,7 @@ export default function App() {
       )
     }
     setScore(resultScore)
+    setQuestionTotal(finalQuestionTotal)
     setSecurityLevel(resultSecurityLevel)
     setScreen("result")
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -207,6 +212,7 @@ export default function App() {
       setSecurityLevel(session.securityLevel)
       if (session.status !== "in_progress") {
         setScore(session.verifiedScore)
+        setQuestionTotal(campaign?.requiredQuestionCount ?? QUIZ_LENGTH)
         setScreen("locked")
         return
       }
@@ -332,6 +338,7 @@ export default function App() {
   const resultScreen = (
     <ResultScreen
       score={score}
+      questionTotal={questionTotal}
       securityLevel={securityLevel}
       onBack={goBackFromResult}
       onHome={goHome}
@@ -386,7 +393,9 @@ export default function App() {
             <br />
             문의해 주세요.
           </p>
-          <strong>최종 점수 {score} / 30</strong>
+          <strong>
+            최종 점수 {score} / {questionTotal}
+          </strong>
           {securityLevel && (
             <strong>
               정보보안 등급 {SECURITY_LEVEL_META[securityLevel].label}
@@ -447,6 +456,7 @@ export default function App() {
         <div className="game-session" hidden={screen !== "game"}>
           <GameScreen
             key={gameKey}
+            campaignToken={attemptSession ? CAMPAIGN_TOKEN : null}
             onFinish={finishGame}
             onExit={goBackFromGame}
             initialProgress={

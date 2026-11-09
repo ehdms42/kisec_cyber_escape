@@ -10,7 +10,6 @@ export interface Puzzle {
   title: string
   shortTitle: string
   clue: string
-  questions: readonly number[]
   digit: typeof DOOR_CODE[number]
   closeImage: string
   solvedImage: string
@@ -34,7 +33,6 @@ export const PUZZLES: readonly Puzzle[] = [
     title: "관리자 콘솔",
     shortTitle: "관리 콘솔",
     clue: "콘솔 인증이 완료되자\n첫 번째 코드 숫자가 나타났다.",
-    questions: [0, 1, 2, 3, 4, 5, 6, 7],
     digit: DOOR_CODE[0],
     closeImage: "/server-console-v2-close.jpg",
     solvedImage: "/server-console-v2-solved.jpg",
@@ -55,7 +53,6 @@ export const PUZZLES: readonly Puzzle[] = [
     title: "네트워크 패치 패널",
     shortTitle: "패치 패널",
     clue: "정상 포트가 연결되며\n두 번째 코드 숫자가 전송됐다.",
-    questions: [8, 9, 10, 11, 12, 13, 14],
     digit: DOOR_CODE[1],
     closeImage: "/server-patch-v2-close.jpg",
     solvedImage: "/server-patch-v2-solved.jpg",
@@ -76,7 +73,6 @@ export const PUZZLES: readonly Puzzle[] = [
     title: "백업 테이프 장치",
     shortTitle: "백업 장치",
     clue: "백업 카트리지에서\n세 번째 코드 숫자를 확인했다.",
-    questions: [15, 16, 17, 18, 19, 20, 21, 22],
     digit: DOOR_CODE[2],
     closeImage: "/server-backup-v2-close.jpg",
     solvedImage: "/server-backup-v2-solved.jpg",
@@ -97,7 +93,6 @@ export const PUZZLES: readonly Puzzle[] = [
     title: "UPS 제어반",
     shortTitle: "UPS 제어반",
     clue: "점검 모듈이 열리며\n마지막 코드 숫자가 표시됐다.",
-    questions: [23, 24, 25, 26, 27, 28, 29],
     digit: DOOR_CODE[3],
     closeImage: "/server-ups-v2-close.jpg",
     solvedImage: "/server-ups-v2-solved.jpg",
@@ -172,3 +167,24 @@ export const PROLOGUE: readonly PrologueLine[] = [
     text: "좋아. 문제를 풀고 네 자리 코드를 완성해서 이 방을 탈출해야겠어!",
   },
 ]
+
+// 출제 문항을 장치 4개에 나눈다. 나머지는 1·3·2·4번째 장치 순으로 한 문항씩 더한다
+// (30문항 → 8·7·8·7, 20문항 → 5·5·5·5).
+export function puzzleQuestionCounts(total: number) {
+  const base = Math.floor(total / PUZZLES.length)
+  const counts = PUZZLES.map(() => base)
+  const extraOrder = [0, 2, 1, 3]
+  for (let index = 0; index < total % PUZZLES.length; index += 1) {
+    counts[extraOrder[index]] += 1
+  }
+  return counts
+}
+
+export function puzzleQuestionIndexes(total: number) {
+  let start = 0
+  return puzzleQuestionCounts(total).map((count) => {
+    const indexes = Array.from({ length: count }, (_, index) => start + index)
+    start += count
+    return indexes
+  })
+}

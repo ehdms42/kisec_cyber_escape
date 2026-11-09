@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import QuestionPanel from "../components/QuestionPanel"
 import {
   COINS_PER_CORRECT_ANSWER,
@@ -7,7 +7,7 @@ import {
   PUZZLES,
   type Puzzle,
   type PuzzleId,
-  QUIZ_LENGTH,
+  puzzleQuestionIndexes,
   ROOM_STAGES,
 } from "../game/config"
 import { splitQuestion } from "../game/question"
@@ -23,7 +23,8 @@ import type {
 } from "../admin/institutionTypes"
 
 interface GameScreenProps {
-  onFinish: (score: number) => void | Promise<void>
+  campaignToken?: string | null
+  onFinish: (score: number, questionTotal: number) => void | Promise<void>
   onExit: () => void
   initialProgress?: Record<string, unknown> | null
   onProgress?: (progress: GameProgress) => void
@@ -41,6 +42,7 @@ interface GameScreenProps {
 const FINAL_ASSETS = ["/server-final-keypad.jpg", "/server-escape-success.jpg"]
 
 export default function GameScreen({
+  campaignToken = null,
   onFinish,
   onExit,
   initialProgress,
@@ -100,7 +102,16 @@ export default function GameScreen({
   const focusedLevel = focusedPuzzle
     ? PUZZLES.findIndex((puzzle) => puzzle.id === focusedPuzzle.id) + 1
     : null
-  const questionIndex = activePuzzle?.questions[questionStep] ?? 0
+  const questionTotal = gameQuestions.length
+  const questionsReady = questionTotal > 0
+  const puzzleQuestions = useMemo(
+    () => puzzleQuestionIndexes(questionTotal),
+    [questionTotal],
+  )
+  const activePuzzleQuestions = activePuzzle
+    ? puzzleQuestions[PUZZLES.indexOf(activePuzzle)]
+    : []
+  const questionIndex = activePuzzleQuestions[questionStep] ?? 0
   const question = gameQuestions[questionIndex]
   const questionParts = question ? splitQuestion(question.question) : null
   const reviewQuestion =
@@ -115,16 +126,15 @@ export default function GameScreen({
   const level = activePuzzle
     ? PUZZLES.findIndex((puzzle) => puzzle.id === activePuzzle.id) + 1
     : Math.min(completed.length + 1, PUZZLES.length)
-  const levelStart = PUZZLES.slice(0, level - 1).reduce(
-    (total, puzzle) => total + puzzle.questions.length,
-    0,
-  )
-  const levelTotal = PUZZLES[level - 1].questions.length
+  const levelStart = puzzleQuestions
+    .slice(0, level - 1)
+    .reduce((total, indexes) => total + indexes.length, 0)
+  const levelTotal = puzzleQuestions[level - 1].length
   const levelAnswered = Math.max(
     0,
     Math.min(levelTotal, answeredCount - levelStart),
   )
-  const levelProgress = (levelAnswered / levelTotal) * 100
+  const levelProgress = levelTotal ? (levelAnswered / levelTotal) * 100 : 0
   const coins = score * COINS_PER_CORRECT_ANSWER
 
   useEffect(() => {
@@ -150,11 +160,16 @@ export default function GameScreen({
     [],
   )
 
+  // onAnswer는 답안을 낼 때마다 새 함수가 될 수 있어, 응시 여부만 의존성으로 쓴다.
+  const usesAttemptQuestions = Boolean(onAnswer)
+
   useEffect(() => {
     let cancelled = false
     setQuestionLoadError("")
     import("../data/questionProvider")
-      .then(({ loadGameQuestions }) => loadGameQuestions(Boolean(onAnswer)))
+      .then(({ loadGameQuestions }) =>
+        loadGameQuestions(usesAttemptQuestions, campaignToken),
+      )
       .then((questions) => {
         if (!cancelled) setGameQuestions(questions)
       })
@@ -171,7 +186,7 @@ export default function GameScreen({
     return () => {
       cancelled = true
     }
-  }, [onAnswer, questionLoadKey])
+  }, [campaignToken, usesAttemptQuestions, questionLoadKey])
 
   useEffect(() => {
     if (phase !== "room") return
@@ -219,7 +234,7 @@ export default function GameScreen({
   ])
 
   const openPuzzle = (puzzle: Puzzle, index: number) => {
-    if (gameQuestions.length !== QUIZ_LENGTH) return
+    if (!questionsReady) return
     setSelectedHotspot(puzzle.id)
     setFocusedId(null)
 
@@ -311,7 +326,7 @@ export default function GameScreen({
   const goToNextQuestion = () => {
     if (!answered || !activePuzzle) return
 
-    if (questionStep === activePuzzle.questions.length - 1) {
+    if (questionStep === activePuzzleQuestions.length - 1) {
       setPhase("reveal")
       return
     }
@@ -352,7 +367,7 @@ export default function GameScreen({
     const timer = window.setTimeout(() => {
       if (completionTimerRef.current !== timer) return
       completionTimerRef.current = null
-      Promise.resolve(onFinish(score)).catch(() => {
+      Promise.resolve(onFinish(score, questionTotal)).catch(() => {
         setIsUnlocking(false)
         setHasCodeError(true)
       })
@@ -488,7 +503,7 @@ export default function GameScreen({
         </div>
       </header>
 
-      {gameQuestions.length !== QUIZ_LENGTH && (
+      {!questionsReady && (
         <div className="game-question-gate" role="status" aria-live="polite">
           <section>
             <img src="/lock-front-blue-v2.png" alt="" aria-hidden="true" />
@@ -760,7 +775,7 @@ export default function GameScreen({
             <section className="object-quiz-panel">
               <div className="question-progress">
                 <b>
-                  문항 {questionStep + 1} / {activePuzzle.questions.length}
+                  문항 {questionStep + 1} / {activePuzzleQuestions.length}
                 </b>
               </div>
               <QuestionPanel
@@ -806,7 +821,7 @@ export default function GameScreen({
                 onClick={goToNextQuestion}
                 disabled={!answered || answerPending}
               >
-                {questionStep === activePuzzle.questions.length - 1
+                {questionStep === activePuzzleQuestions.length - 1
                   ? "장치 해제"
                   : "다음 문제"}
               </button>

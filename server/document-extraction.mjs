@@ -7,6 +7,7 @@ import {
   parseAnswerSheet,
   parseQuestionSheet,
 } from "../src/admin/documentParser.mjs"
+import { extractDocxText } from "./docx.mjs"
 
 const DIRECT_EXTRACTION_THRESHOLD = 0.68
 const OCR_TIMEOUT_MS = 90_000
@@ -171,6 +172,10 @@ async function extractPdfText(buffer) {
   return cleanDocumentText(pages.join("\n\n"))
 }
 
+function extractWordText(buffer) {
+  return cleanDocumentText(extractDocxText(buffer))
+}
+
 async function extractHwpText(buffer) {
   return cleanDocumentText(await toMarkdown(new Uint8Array(buffer)))
 }
@@ -257,7 +262,9 @@ export async function extractDocument(file, options) {
     directText =
       extension === ".pdf"
         ? await extractPdfText(file.buffer)
-        : await extractHwpText(file.buffer)
+        : extension === ".docx"
+          ? extractWordText(file.buffer)
+          : await extractHwpText(file.buffer)
   } catch (error) {
     directError = error
   }
@@ -313,6 +320,11 @@ export async function extractDocument(file, options) {
         "한글 문서의 글과 표를 읽지 못했습니다. 암호·배포용 문서인지 확인하고, 복잡한 문서는 한컴에서 PDF로 저장해 다시 올려 주세요.",
       )
     }
+    if (extension === ".docx") {
+      throw new Error(
+        "Word 문서의 글과 표를 읽지 못했습니다. 암호가 설정된 문서인지 확인하고, Word에서 다시 저장해 올려 주세요.",
+      )
+    }
     throw directError ?? new Error("문서에서 텍스트를 찾지 못했습니다.")
   }
 
@@ -321,12 +333,19 @@ export async function extractDocument(file, options) {
     warnings.push(
       extension === ".pdf"
         ? "문서 구조 인식률이 낮습니다. 문자 인식 설정을 연결하면 자동으로 다시 분석합니다."
-        : "한글 문서의 복잡한 표나 배치가 일부 누락됐을 수 있으니 추출 원문을 확인해 주세요.",
+        : extension === ".docx"
+          ? "Word 문서의 자동 번호 목록이나 복잡한 표가 일부 누락됐을 수 있으니 추출 원문을 확인해 주세요."
+          : "한글 문서의 복잡한 표나 배치가 일부 누락됐을 수 있으니 추출 원문을 확인해 주세요.",
     )
   }
   return {
     text: directText,
-    method: extension === ".pdf" ? "pdf-text" : "hwp-structure",
+    method:
+      extension === ".pdf"
+        ? "pdf-text"
+        : extension === ".docx"
+          ? "docx-structure"
+          : "hwp-structure",
     confidence: directAssessment.confidence,
     warnings,
   }

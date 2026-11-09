@@ -866,6 +866,13 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         .from("institutions")
         .delete()
         .eq("id", id)
+      if (error?.code === "23503") {
+        const conflict = new Error(
+          "배포가 연결된 기관은 삭제할 수 없습니다. 배포를 먼저 삭제하거나 비활성화해 주세요.",
+        )
+        conflict.status = 409
+        throw conflict
+      }
       if (error) throw error
     },
 
@@ -1056,6 +1063,13 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         return
       }
       const { error } = await supabase.from("campaigns").delete().eq("id", id)
+      if (error?.code === "23503") {
+        const conflict = new Error(
+          "응시 기록이 있는 배포는 삭제할 수 없습니다. 설정에서 비활성화해 주세요.",
+        )
+        conflict.status = 409
+        throw conflict
+      }
       if (error) throw error
     },
 

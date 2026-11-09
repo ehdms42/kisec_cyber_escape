@@ -1763,6 +1763,7 @@ button:focus-visible {
   margin: 5px 0 0;
   font-size: 12px;
   line-height: 1.55;
+  white-space: pre-line;
 }
 
 .mission-feedback.correct > strong {

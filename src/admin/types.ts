@@ -51,7 +51,7 @@ export interface QuestionDocument {
   createdAt: string
 }
 
-export type DocumentExtractionMethod = "pdf-text" | "hwp-structure" | "clova-ocr"
+export type DocumentExtractionMethod = "pdf-text" | "hwp-structure" | "docx-structure" | "clova-ocr"
 
 export interface DocumentTextExtraction {
   text: string

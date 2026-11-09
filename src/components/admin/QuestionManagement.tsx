@@ -148,7 +148,7 @@ export default function QuestionManagement() {
             onClick={() => setImportOpen(true)}
           >
             <AdminIcon name="upload" />
-            PDF · HWP 가져오기
+            PDF · HWP · DOCX 가져오기
           </button>
           <button
             className="admin-primary admin-action-with-icon"

@@ -131,7 +131,7 @@ test("문서 확장자와 실제 파일 형식이 다르면 저장 전에 거부
         originalname: "renamed.pdf",
         buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
       }),
-    /지원되는 한글 또는 PDF 문서 형식/,
+    /지원되는 한글, Word 또는 PDF 문서 형식/,
   )
   assert.doesNotThrow(() =>
     validateDocumentFile({
@@ -161,7 +161,7 @@ test("일반 ZIP 파일을 HWPX로 오인하지 않는다", () => {
           Buffer.from("ordinary-file.txt"),
         ]),
       }),
-    /지원되는 한글 또는 PDF 문서 형식/,
+    /지원되는 한글, Word 또는 PDF 문서 형식/,
   )
 })
 

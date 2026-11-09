@@ -38,6 +38,7 @@ function isAutoSelectable(question: ExtractedQuestion) {
 function extractionMethodLabel(method: DocumentTextExtraction["method"]) {
   if (method === "clova-ocr") return "문자 인식"
   if (method === "hwp-structure") return "한글 구조 분석"
+  if (method === "docx-structure") return "Word 구조 분석"
   return "PDF 문자 분석"
 }
 
@@ -309,19 +310,19 @@ export default function DocumentImportPanel({
           <label className="admin-file-drop">
             <input
               type="file"
-              accept=".pdf,.hwp,.hwpx,application/pdf"
+              accept=".pdf,.hwp,.hwpx,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => selectFile("question", event)}
               disabled={processing || saving}
             />
             <span>문제지</span>
             <b>{questionFile ? questionFile.name : "문제지 선택"}</b>
-            <small>PDF · HWP · HWPX</small>
+            <small>PDF · HWP · HWPX · DOCX</small>
             <i>{questionFile ? "변경" : "선택"}</i>
           </label>
           <label className="admin-file-drop">
             <input
               type="file"
-              accept=".pdf,.hwp,.hwpx,application/pdf"
+              accept=".pdf,.hwp,.hwpx,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => selectFile("answer", event)}
               disabled={processing || saving}
             />

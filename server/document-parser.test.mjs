@@ -206,3 +206,98 @@ test("번호 체계가 다른 두 문서는 순서로 보조 연결하고 검수
   assert.ok(questions[0].confidence < 0.75)
   assert.match(questions[0].warnings.join(" "), /순서로 연결/)
 })
+
+test("보기 안에서 다른 보기를 가리키는 기호는 보기 구분자로 보지 않는다", () => {
+  const [question] = parseQuestionSheet(`
+4. 해설서 선택지 ①로 평가받기 위한 기준으로 옳은 것은?
+① 2종류 이상의 활동을 반영해야 한다.
+② 1종만 반영해도 해설서 선택지 ①으로 평가한다.
+③ 일부 시스템만 누락했으므로 해설서 선택지 ④(0.5점)로 평가한다.
+④ 가·감점 방식은 해설서 선택지 ③(0.3점)이다.
+`)
+  assert.equal(question.options.length, 4)
+  assert.equal(
+    question.options[1],
+    "1종만 반영해도 해설서 선택지 ①으로 평가한다.",
+  )
+  assert.equal(
+    question.options[2],
+    "일부 시스템만 누락했으므로 해설서 선택지 ④(0.5점)로 평가한다.",
+  )
+})
+
+test("■ 영역 제목은 다음 문제들의 분류가 되고 앞 문제 보기에 붙지 않는다", () => {
+  const questions = parseQuestionSheet(`
+■ 평가 개요  (1~1번 · 1문항)
+1. 첫 질문
+① 하나
+② 둘
+■ 관리적 보안  (2~2번 · 1문항)
+2. 둘째 질문
+① 셋
+② 넷
+`)
+  assert.deepEqual(
+    questions.map((question) => question.category),
+    ["평가 개요", "관리적 보안"],
+  )
+  assert.deepEqual(questions[0].options, ["하나", "둘"])
+})
+
+test("문제와 보기를 다시 싣는 해설지는 정답 줄 이후의 해설만 읽는다", () => {
+  const questionText = `
+1. 이의신청 기한으로 옳은 것은?
+① 업무일 7일 이내
+② 업무일 3일 이내
+2. 2026년도 평가점수 산출 방법으로 옳은 것은?
+① 하향 변경 질의당 0.1점 감점
+② 모든 변경 질의당 0.1점 감점
+`
+  const answerText = `
+■ 평가 개요  (1~2번 · 2문항)
+1. 이의신청 기한으로 옳은 것은?
+① 업무일 7일 이내
+② 업무일 3일 이내
+정답  ①     근거: 3. 절차 (해설서 p.3~4)
+해설  실사 종료일 기준 업무일 7일 이내다.
+오답 풀이
+② 해설서상 기한은 업무일 7일이다.
+컨설팅 포인트  담당자를 미리 지정해 둔다.
+2. 2026년도 평가점수 산출 방법으로 옳은 것은?
+① 하향 변경 질의당 0.1점 감점
+② 모든 변경 질의당 0.1점 감점
+정답  ①     근거: 4. 평가점수 산출 방법 (해설서 p.5~6)
+해설  부실도는 하향 변경된 질의에만 적용한다.
+`
+  const answers = parseAnswerSheet(answerText)
+  assert.equal(answers.size, 2)
+  assert.equal(answers.get(2).correctAnswer, 0)
+
+  const questions = mergeQuestionAndAnswerTexts(questionText, answerText)
+  assert.deepEqual(
+    questions.map((question) => question.correctAnswer),
+    [0, 0],
+  )
+  assert.equal(
+    questions[0].explanation,
+    "실사 종료일 기준 업무일 7일 이내다.\n오답 풀이\n② 해설서상 기한은 업무일 7일이다.\n컨설팅 포인트 담당자를 미리 지정해 둔다.",
+  )
+  assert.equal(questions[0].sourceReference, "3. 절차 (해설서 p.3~4)")
+  assert.deepEqual(questions[1].warnings, [])
+})
+
+test("본문 문장 속 ㉠~㉦ 조건은 기호와 문장을 그대로 두고 보기와 섞지 않는다", () => {
+  const [question] = parseQuestionSheet(`
+75. E기관의 현황이 다음과 같다. ㉠ 5회 실패 시 차단 ㉡ 접속IP 표시 ㉢ SPF 정상. 질의 21002의 득점은?
+[기술적 보안 · 21002 전자우편 보안]
+① 1.8점
+② 1.6점
+③ 1.3점
+④ 1.5점
+`)
+  assert.equal(
+    question.prompt,
+    "E기관의 현황이 다음과 같다. ㉠ 5회 실패 시 차단 ㉡ 접속IP 표시 ㉢ SPF 정상. 질의 21002의 득점은?\n[기술적 보안 · 21002 전자우편 보안]",
+  )
+  assert.deepEqual(question.options, ["1.8점", "1.6점", "1.3점", "1.5점"])
+})

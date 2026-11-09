@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { hwp } from "@mdgate/hwp"
+import { isDocxBuffer } from "./docx.mjs"
 import { LEGACY_QUESTION_ANSWERS } from "./question-answers.mjs"
 import { hashPassword } from "./security.mjs"
 
@@ -275,10 +276,14 @@ function documentMimeType(filename, fallback, detectedExtension = null) {
   if (detectedExtension === ".pdf") return "application/pdf"
   if (detectedExtension === ".hwp") return "application/vnd.hancom.hwp"
   if (detectedExtension === ".hwpx") return "application/vnd.hancom.hwpx"
+  if (detectedExtension === ".docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   const extension = path.extname(filename).toLowerCase()
   if (extension === ".pdf") return "application/pdf"
   if (extension === ".hwp") return "application/vnd.hancom.hwp"
   if (extension === ".hwpx") return "application/vnd.hancom.hwpx"
+  if (extension === ".docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   return fallback || "application/octet-stream"
 }
 
@@ -300,8 +305,8 @@ function bufferIncludesHeader(buffer, signature, byteLimit) {
 
 export function validateDocumentFile(file) {
   const extension = path.extname(file?.originalname ?? "").toLowerCase()
-  if (![".pdf", ".hwp", ".hwpx"].includes(extension)) {
-    const error = new Error("PDF, HWP, HWPX 파일만 업로드할 수 있습니다.")
+  if (![".pdf", ".hwp", ".hwpx", ".docx"].includes(extension)) {
+    const error = new Error("PDF, HWP, HWPX, DOCX 파일만 업로드할 수 있습니다.")
     error.status = 415
     throw error
   }
@@ -319,13 +324,17 @@ export function validateDocumentFile(file) {
     Buffer.isBuffer(file.buffer) &&
     hwpConverter.sniff(new Uint8Array(file.buffer)) > 0
 
+  const isDocx = isZip && !isHancomDocument && isDocxBuffer(file.buffer)
+
   const detectedExtension = isPdf
     ? ".pdf"
     : isHancomDocument
       ? isZip
         ? ".hwpx"
         : ".hwp"
-      : null
+      : isDocx
+        ? ".docx"
+        : null
   const matches =
     detectedExtension === extension ||
     ([".hwp", ".hwpx"].includes(extension) &&
@@ -333,7 +342,7 @@ export function validateDocumentFile(file) {
 
   if (!matches) {
     const error = new Error(
-      "지원되는 한글 또는 PDF 문서 형식을 확인하지 못했습니다. 암호가 설정된 문서나 확장자만 바꾼 파일인지 확인해 주세요.",
+      "지원되는 한글, Word 또는 PDF 문서 형식을 확인하지 못했습니다. 암호가 설정된 문서나 확장자만 바꾼 파일인지 확인해 주세요.",
     )
     error.status = 415
     throw error

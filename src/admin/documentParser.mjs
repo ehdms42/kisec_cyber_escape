@@ -6,6 +6,13 @@ const CIRCLED_NUMBERS = CIRCLED_NUMBER_SETS.flat()
 const PARENTHESIZED_KOREAN = ["㉠", "㉡", "㉢", "㉣", "㉤", "㉥", "㉦", "㉧"]
 const KOREAN_OPTIONS = ["가", "나", "다", "라", "마", "바", "사", "아"]
 
+function symbolLabels(symbol) {
+  return (
+    CIRCLED_NUMBER_SETS.find((numberSet) => numberSet.includes(symbol)) ??
+    PARENTHESIZED_KOREAN
+  )
+}
+
 function symbolOptionIndex(symbol) {
   for (const numberSet of CIRCLED_NUMBER_SETS) {
     const index = numberSet.indexOf(symbol)
@@ -99,12 +106,28 @@ function questionStart(line) {
   return tableNumber ? { number: Number(tableNumber[1]), rest: "" } : null
 }
 
+// "■ 관리적 보안 (4~28번 · 25문항)" 같은 영역 제목은 이어지는 문제들의 분류로 쓴다.
+function sectionHeading(line) {
+  const heading = line.match(/^■\s*(.+)$/)
+  if (!heading) return null
+  return heading[1].replace(/\s*\([^)]*\)\s*$/, "").trim() || null
+}
+
 function splitQuestionBlocks(lines) {
   const blocks = []
   let current = null
+  let section = null
 
   for (const line of lines) {
     if (!line) continue
+
+    const heading = sectionHeading(line)
+    if (heading && (!current || current.optionCount >= 2)) {
+      if (current) blocks.push(current)
+      current = null
+      section = heading
+      continue
+    }
 
     const option = current ? parseOption(line) : null
     const continuesOptionGroup =
@@ -135,6 +158,7 @@ function splitQuestionBlocks(lines) {
           lines: sequentialStart.rest ? [sequentialStart.rest] : [],
           optionCount: 0,
           optionKind: null,
+          section,
         }
         continue
       }
@@ -167,6 +191,7 @@ function splitQuestionBlocks(lines) {
         lines: start.rest ? [start.rest] : [],
         optionCount: 0,
         optionKind: null,
+        section,
       }
       continue
     }
@@ -179,9 +204,28 @@ function splitQuestionBlocks(lines) {
   return blocks
 }
 
+// "해설서 선택지 ①으로", "선택지 ②(1점)"처럼 본문에서 다른 보기를 가리키는 기호는
+// 보기 구분자가 아니다. 앞뒤가 띄어 쓰인 기호가 ①②③ 순서로 이어질 때만 한 줄 보기로 본다.
 function inlineSymbolOptions(line) {
-  const matches = [...line.matchAll(/[①②③④⑤⑥⑦⑧❶❷❸❹❺❻❼❽㉠㉡㉢㉣㉤㉥㉦㉧]/g)]
+  const matches = [
+    ...line.matchAll(/[①②③④⑤⑥⑦⑧❶❷❸❹❺❻❼❽㉠㉡㉢㉣㉤㉥㉦㉧]/g),
+  ].filter((match) => {
+    const start = match.index ?? 0
+    const next = line[start + match[0].length]
+    return (
+      (start === 0 || /\s/.test(line[start - 1])) &&
+      (next === undefined || /\s/.test(next))
+    )
+  })
   if (matches.length < 2) return []
+  const firstIndex = symbolOptionIndex(matches[0][0])
+  if (
+    matches.some(
+      (match, index) => symbolOptionIndex(match[0]) !== firstIndex + index,
+    )
+  ) {
+    return []
+  }
   return matches.map((match, index) => {
     const optionIndex = symbolOptionIndex(match[0])
     const start = (match.index ?? 0) + match[0].length
@@ -190,6 +234,8 @@ function inlineSymbolOptions(line) {
       index: optionIndex,
       text: line.slice(start, end).trim(),
       kind: "symbol",
+      labels: symbolLabels(match[0]),
+      prefix: index === 0 ? line.slice(0, match.index ?? 0).trim() : "",
     }
   })
 }
@@ -204,6 +250,7 @@ function parseOption(line) {
       index: symbolOptionIndex(optionSymbol),
       text: normalized.slice(optionSymbol.length).trim(),
       kind: "symbol",
+      labels: symbolLabels(optionSymbol),
     }
   }
 
@@ -239,17 +286,32 @@ function parseOption(line) {
     : null
 }
 
+function optionLabel(group, index) {
+  if (group.kind === "korean") return `${KOREAN_OPTIONS[index]}.`
+  if (group.kind === "letter") return `${String.fromCharCode(65 + index)}.`
+  if (group.kind === "symbol") return group.labels?.[index] ?? `${index + 1}.`
+  return `(${index + 1})`
+}
+
 function parseQuestionBlock(block) {
-  const promptLines = []
+  // 문제 본문·조건 목록·보기를 원문 순서대로 모아 두었다가,
+  // 마지막 보기 묶음만 선택지로 쓰고 나머지는 원문 그대로 본문에 남긴다.
+  const segments = []
   const optionGroups = []
   let currentOptionGroup = null
   let currentOptionIndex = null
-  let category = "미분류"
+  let category = block.section ?? "미분류"
   let sourceReference = ""
 
-  const beginOptionGroup = (kind) => {
-    currentOptionGroup = { kind, options: [] }
+  const beginOptionGroup = (option) => {
+    currentOptionGroup = {
+      kind: option.kind,
+      labels: option.labels,
+      options: [],
+      inlineLines: [],
+    }
     optionGroups.push(currentOptionGroup)
+    segments.push({ group: currentOptionGroup })
   }
 
   const addOptions = (candidates) => {
@@ -257,9 +319,10 @@ function parseQuestionBlock(block) {
       if (
         !currentOptionGroup ||
         currentOptionGroup.kind !== option.kind ||
+        currentOptionGroup.labels !== option.labels ||
         (option.index === 0 && currentOptionGroup.options[0])
       ) {
-        beginOptionGroup(option.kind)
+        beginOptionGroup(option)
       }
       currentOptionGroup.options[option.index] = option.text
       currentOptionIndex = option.index
@@ -285,6 +348,12 @@ function parseQuestionBlock(block) {
     const inlineOptions = inlineSymbolOptions(line)
     if (inlineOptions.length) {
       addOptions(inlineOptions)
+      currentOptionGroup.inlineLines.push({
+        line,
+        prefix: inlineOptions[0].prefix,
+      })
+      // 한 줄에 나열된 보기 뒤의 줄은 마지막 보기의 연속이 아니라 본문이다.
+      currentOptionIndex = null
       continue
     }
 
@@ -302,7 +371,7 @@ function parseQuestionBlock(block) {
         .filter(Boolean)
         .join(" ")
     } else {
-      promptLines.push(line)
+      segments.push({ text: line })
     }
   }
 
@@ -310,24 +379,20 @@ function parseQuestionBlock(block) {
     .reverse()
     .find((group) => group.options.filter(Boolean).length >= 2)
   const compactOptions = selectableGroup?.options.filter(Boolean) ?? []
-  const supportingLines = optionGroups
-    .filter((group) => group !== selectableGroup)
-    .flatMap((group) =>
-      group.options.flatMap((option, index) => {
-        if (!option) return []
-        const label =
-          group.kind === "korean"
-            ? `${KOREAN_OPTIONS[index]}.`
-            : group.kind === "letter"
-              ? `${String.fromCharCode(65 + index)}.`
-              : group.kind === "symbol"
-                ? (CIRCLED_NUMBER_SETS[0][index] ?? `${index + 1}.`)
-                : `(${index + 1})`
-        return [`${label} ${option}`]
-      }),
+  const promptLines = segments.flatMap(({ text, group }) => {
+    if (text) return [text]
+    if (group === selectableGroup) {
+      return group.inlineLines.map(({ prefix }) => prefix).filter(Boolean)
+    }
+    if (group.inlineLines.length) {
+      return group.inlineLines.map(({ line }) => line)
+    }
+    return group.options.flatMap((option, index) =>
+      option ? [`${optionLabel(group, index)} ${option}`] : [],
     )
+  })
   const warnings = []
-  const prompt = [...promptLines, ...supportingLines].join("\n").trim()
+  const prompt = promptLines.join("\n").trim()
   if (!prompt) warnings.push("문제 본문을 확인해 주세요.")
   if (compactOptions.length < 2) warnings.push("보기가 두 개 미만입니다.")
 
@@ -422,11 +487,63 @@ function applyAnswer(entry, answer) {
   entry.correctAnswer = answer
 }
 
+// 해설지처럼 문제·보기를 다시 싣고 그 아래에 "정답 ①  근거: …", "해설 …"이
+// 이어지는 문서는 보기 줄을 정답으로 오인하지 않도록 정답 줄 이후만 읽는다.
+function parseWorkedSolutions(lines) {
+  const sections = []
+  for (const [index, original] of lines.entries()) {
+    const header = original
+      .trim()
+      .match(/^(?:문제|문항)?\s*(\d{1,3})\s*[.)]\s+\S/)
+    if (!header) continue
+    const number = Number(header[1])
+    const previous = sections.at(-1)
+    if (!previous || number === previous.number + 1) {
+      sections.push({ number, start: index })
+    }
+  }
+
+  const answers = new Map()
+  sections.forEach((section, sectionIndex) => {
+    const end = sections[sectionIndex + 1]?.start ?? lines.length
+    const body = lines.slice(section.start + 1, end).map((line) => line.trim())
+    const answerLine = body.findIndex((line) =>
+      /^정답\s*[:：]?\s*[①②③④⑤⑥⑦⑧❶❷❸❹❺❻❼❽㉠㉡㉢㉣㉤㉥㉦㉧1-8](?!\d)/.test(line),
+    )
+    if (answerLine < 0) return
+
+    const answerText = body[answerLine].replace(/^정답\s*[:：]?\s*/, "")
+    const answer = parseAnswerToken(answerText.slice(0, 1))
+    if (answer === null) return
+    const entry = createAnswerEntry()
+    entry.correctAnswer = answer
+    const source = answerText.match(/(?:근거|출처|참고)\s*[:：]\s*(.+)$/)
+    if (source) entry.sourceReference = source[1].trim()
+
+    entry.explanation = body
+      .slice(answerLine + 1)
+      .filter((line) => line && !sectionHeading(line))
+      .map((line) =>
+        line
+          .replace(/^(?:해설|설명|풀이)(?:\s*[:：]\s*|\s+)/, "")
+          .replace(/\s{2,}/g, " "),
+      )
+      .filter(Boolean)
+      .join("\n")
+    entry.explanationProvided = Boolean(entry.explanation)
+    answers.set(section.number, entry)
+  })
+  return answers
+}
+
 export function parseAnswerSheet(text) {
+  const lines = cleanDocumentText(text).split("\n")
+  const workedSolutions = parseWorkedSolutions(lines)
+  if (workedSolutions.size >= 2) return workedSolutions
+
   const answers = new Map()
   let currentNumber = null
   let currentField = null
-  const lines = cleanDocumentText(text).split("\n")
   const consumedTableLines = new Set()
 
   for (let index = 0; index < lines.length; index += 1) {

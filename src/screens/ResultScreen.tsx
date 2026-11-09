@@ -7,6 +7,7 @@ import {
 
 interface ResultScreenProps {
   score: number
+  questionTotal?: number
   securityLevel?: SecurityLevel | null
   onBack: () => void
   onHome: () => void
@@ -30,15 +31,17 @@ function getResultGrade(rate: number) {
 
 export default function ResultScreen({
   score,
+  questionTotal = QUIZ_LENGTH,
   securityLevel,
   onBack,
   onHome,
 }: ResultScreenProps) {
-  const safeScore = Math.min(Math.max(score, 0), QUIZ_LENGTH)
-  const rate = Math.round((safeScore / QUIZ_LENGTH) * 100)
+  const total = Math.max(questionTotal, 1)
+  const safeScore = Math.min(Math.max(score, 0), total)
+  const rate = Math.round((safeScore / total) * 100)
   const grade = getResultGrade(rate)
   const resultSecurityLevel =
-    securityLevel ?? securityLevelFromResult(safeScore, QUIZ_LENGTH)
+    securityLevel ?? securityLevelFromResult(safeScore, total)
   const securityLevelMeta = SECURITY_LEVEL_META[resultSecurityLevel]
   const rewardXp = safeScore * 100
 
@@ -90,7 +93,7 @@ export default function ResultScreen({
               <small>정답</small>
               <strong>
                 {safeScore}
-                <i>/{QUIZ_LENGTH}</i>
+                <i>/{total}</i>
               </strong>
             </span>
             <span>

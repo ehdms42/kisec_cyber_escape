@@ -52,9 +52,23 @@ function toQuestion(row: PublishedQuestionRow): Question {
 
 export async function loadGameQuestions(
   usePublishedQuestions = false,
+  campaignToken: string | null = null,
 ): Promise<Question[]> {
   if (!usePublishedQuestions || !isSupabaseConfigured || !supabase) {
     return QUESTIONS.slice(0, QUIZ_LENGTH)
+  }
+
+  // 기관 세션에 문항 구성이 저장되어 있으면 그 문항만 정해진 순서로 출제한다.
+  if (campaignToken) {
+    const { data, error } = await supabase.rpc("get_campaign_questions", {
+      p_public_token: campaignToken,
+    })
+    // PGRST202: 마이그레이션 적용 전이라 함수가 없으면 기존 방식으로 출제한다.
+    if (error && error.code !== "PGRST202")
+      throw new Error(`세션 문제를 불러오지 못했습니다: ${error.message}`)
+    if (!error && data.length > 0) {
+      return (data as PublishedQuestionRow[]).map(toQuestion)
+    }
   }
 
   const { data, error } = await supabase.rpc("get_published_questions", {

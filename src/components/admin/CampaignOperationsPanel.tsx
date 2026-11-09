@@ -18,6 +18,7 @@ import { useNotice } from "../../admin/useNotice"
 import { subscribeToLeaderboard } from "../../game/liveLeaderboard"
 import { useAdminDialog } from "./AdminDialogProvider"
 import AdminIcon from "./AdminIcon"
+import CampaignQuestionsTab from "./CampaignQuestionsTab"
 
 const STATUS_LABEL: Record<CampaignStatus, string> = {
   draft: "준비 중",
@@ -152,9 +153,8 @@ export default function CampaignOperationsPanel({
   onUpdated: (campaign: Campaign) => void
 }) {
   const { prompt } = useAdminDialog()
-  const [tab, setTab] = useState<"overview" | "participants" | "monitor">(
-    "overview",
-  )
+  const [tab, setTab] =
+    useState<"overview" | "questions" | "participants" | "monitor">("overview")
   const [notice, setNotice] = useNotice()
   const [working, setWorking] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState("")
@@ -261,6 +261,13 @@ export default function CampaignOperationsPanel({
           </button>
           <button
             type="button"
+            className={tab === "questions" ? "active" : ""}
+            onClick={() => setTab("questions")}
+          >
+            문항 구성
+          </button>
+          <button
+            type="button"
             className={tab === "participants" ? "active" : ""}
             onClick={() => setTab("participants")}
           >
@@ -325,6 +332,14 @@ export default function CampaignOperationsPanel({
               </div>
             </div>
           </section>
+        )}
+
+        {tab === "questions" && (
+          <CampaignQuestionsTab
+            campaign={campaign}
+            onUpdated={onUpdated}
+            setNotice={setNotice}
+          />
         )}
 
         {tab === "participants" && (

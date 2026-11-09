@@ -8,6 +8,8 @@ import type {
   AttemptSession,
   AttemptSummary,
   Campaign,
+  CampaignQuestion,
+  CampaignQuestionSetResult,
   CampaignStatus,
   HintRevealResult,
   Institution,
@@ -212,6 +214,24 @@ export async function updateCampaignStatus(id: string, status: CampaignStatus) {
     method: "PATCH",
     body: JSON.stringify({ status }),
   })
+}
+
+export async function listCampaignQuestions(campaignId: string) {
+  if (isAdminDemoMode) return []
+  return adminRequest<CampaignQuestion[]>(`/campaigns/${campaignId}/questions`)
+}
+
+export async function saveCampaignQuestions(
+  campaignId: string,
+  questionIds: string[],
+) {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 세션 문항 구성을 저장할 수 없습니다.")
+  }
+  return adminRequest<CampaignQuestionSetResult>(
+    `/campaigns/${campaignId}/questions`,
+    { method: "PUT", body: JSON.stringify({ questionIds }) },
+  )
 }
 
 export async function updateCampaignLeaderboardVisibility(

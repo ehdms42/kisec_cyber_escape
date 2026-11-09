@@ -133,3 +133,17 @@ export interface AnswerVerification {
   verifiedScore: number
   answeredCount: number
 }
+
+export interface CampaignQuestion {
+  questionId: string
+  ordinal: number
+  category: string
+  prompt: string
+  status: "draft" | "published"
+  sortOrder: number
+}
+
+export interface CampaignQuestionSetResult {
+  campaign: Campaign
+  questions: CampaignQuestion[]
+}

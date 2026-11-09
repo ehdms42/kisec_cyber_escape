@@ -176,3 +176,70 @@ test("로그아웃한 관리자 세션 nonce는 만료 전까지 폐기 상태�
     assert.equal(await store.isAdminSessionRevoked("another-session"), false)
   })
 })
+
+test("세션 문항 구성은 공개 문항만 저장하고 필수 문항 수를 맞춘다", async () => {
+  await withLocalStore(async (store) => {
+    const institution = await store.saveInstitution({
+      name: "한국정보보안기술",
+      slug: "kist-test",
+      active: true,
+    })
+    const campaign = await store.saveCampaign({
+      institutionId: institution.id,
+      title: "실태평가 20문항",
+      active: true,
+      startsAt: null,
+      endsAt: null,
+      requiredQuestionCount: 30,
+    })
+    const question = (ordinal, status = "published") => ({
+      ordinal,
+      category: ordinal % 2 ? "관리적 보안" : "기술적 보안",
+      prompt: `${ordinal}번 문제`,
+      options: ["보기 1", "보기 2"],
+      correctAnswer: 0,
+      explanation: "",
+      sourceReference: "",
+      status,
+      sourceDocumentId: null,
+      answerDocumentId: null,
+    })
+    const [first, second, third, draft] = await store.createQuestions([
+      question(1),
+      question(2),
+      question(3),
+      question(4, "draft"),
+    ])
+
+    const result = await store.setCampaignQuestions(campaign.id, [
+      third.id,
+      first.id,
+      second.id,
+    ])
+    assert.equal(result.campaign.requiredQuestionCount, 3)
+    assert.deepEqual(
+      (await store.listCampaignQuestions(campaign.id)).map(
+        ({ ordinal }) => ordinal,
+      ),
+      [3, 1, 2],
+    )
+
+    await assert.rejects(
+      store.setCampaignQuestions(campaign.id, [first.id, draft.id]),
+      /공개된 문항만/,
+    )
+    await assert.rejects(
+      store.setCampaignQuestions(campaign.id, [first.id, first.id]),
+      /중복/,
+    )
+    await assert.rejects(
+      store.deleteQuestion(first.id),
+      /문항 구성에 포함된 문제는 삭제할 수 없습니다/,
+    )
+
+    const cleared = await store.setCampaignQuestions(campaign.id, [])
+    assert.equal(cleared.campaign.requiredQuestionCount, 30)
+    assert.deepEqual(await store.listCampaignQuestions(campaign.id), [])
+    await store.deleteQuestion(first.id)
+  })
+})

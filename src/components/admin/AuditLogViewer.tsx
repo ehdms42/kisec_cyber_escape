@@ -35,6 +35,7 @@ const ACTION_LABEL: Record<string, string> = {
   upload: "파일 업로드",
   status_change: "상태 변경",
   leaderboard_visibility_change: "리더보드 공개 설정 변경",
+  update_questions: "세션 문항 구성 변경",
   import: "일괄 등록",
   select_winner: "1위 선정",
   update_prize_award: "상품 지급 상태 변경",

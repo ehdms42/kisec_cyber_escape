@@ -689,6 +689,39 @@ app.delete(
   },
 )
 
+// ---- 세션 문항 구성 ---------------------------------------------------------
+
+app.get(
+  "/api/admin/campaigns/:id/questions",
+  requireAdmin,
+  requireRole("operations", "content", "super"),
+  async (req, res) => {
+    res.json(await store.listCampaignQuestions(req.params.id))
+  },
+)
+
+app.put(
+  "/api/admin/campaigns/:id/questions",
+  requireAdmin,
+  requireRole("operations", "content", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const before = await store.listCampaignQuestions(req.params.id)
+    const result = await store.setCampaignQuestions(
+      req.params.id,
+      req.body?.questionIds,
+    )
+    await recordAudit(req, {
+      action: "update_questions",
+      targetType: "campaign",
+      targetId: req.params.id,
+      before: { ordinals: before.map((item) => item.ordinal) },
+      after: { ordinals: result.questions.map((item) => item.ordinal) },
+    })
+    res.json(result)
+  },
+)
+
 // ---- 참가자 ---------------------------------------------------------------
 
 app.get(

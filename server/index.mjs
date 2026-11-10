@@ -758,6 +758,26 @@ app.post(
   },
 )
 
+app.delete(
+  "/api/admin/campaigns/:id/participants/:participantId",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const deleted = await store.deleteParticipant(
+      req.params.id,
+      req.params.participantId,
+    )
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "participant",
+      targetId: req.params.participantId,
+      before: { nickname: deleted.nickname, department: deleted.department },
+    })
+    res.status(204).end()
+  },
+)
+
 // ---- 부서 참여 코드 --------------------------------------------------------
 
 app.get(

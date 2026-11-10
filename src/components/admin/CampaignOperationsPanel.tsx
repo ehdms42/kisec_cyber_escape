@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import QRCode from "qrcode"
 import {
+  deleteParticipant,
   listCampaignLiveAttempts,
   listParticipants,
   updateCampaignLeaderboardVisibility,
@@ -282,8 +283,10 @@ function ParticipantsTab({
   campaignId: string
   setNotice: (message: string) => void
 }) {
+  const { confirm } = useAdminDialog()
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [departmentFilter, setDepartmentFilter] = useState("all")
 
   const refresh = useCallback(async () => {
@@ -337,6 +340,30 @@ function ParticipantsTab({
       a.localeCompare(b, "ko"),
     )
   }, [visibleParticipants])
+
+  const removeParticipant = async (participant: Participant) => {
+    const ok = await confirm({
+      title: "참가자 삭제",
+      message: `${participant.nickname}(${participant.department || "부서 미입력"}) 참가자를 삭제할까요? 답안·점수·순위 기록이 함께 삭제되며 되돌릴 수 없습니다. 같은 브라우저로 다시 입장하면 새로 응시할 수 있습니다.`,
+      confirmLabel: "삭제",
+      tone: "danger",
+    })
+    if (!ok) return
+    setDeletingId(participant.id)
+    try {
+      await deleteParticipant(campaignId, participant.id)
+      setNotice(`${participant.nickname} 참가자를 삭제했습니다.`)
+      await refresh()
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "참가자를 삭제하지 못했습니다.",
+      )
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <section className="campaign-participants-tab">
@@ -392,6 +419,14 @@ function ParticipantsTab({
                       ? `${participant.attempt.verifiedScore}점 · ${participant.attempt.answeredCount}문항`
                       : "미응시"}
                   </span>
+                  <button
+                    type="button"
+                    className="participant-delete"
+                    disabled={deletingId !== null}
+                    onClick={() => void removeParticipant(participant)}
+                  >
+                    {deletingId === participant.id ? "삭제 중…" : "삭제"}
+                  </button>
                 </article>
               ))}
             </div>

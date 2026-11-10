@@ -1457,6 +1457,31 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       if (error) throw error
     },
 
+    async deleteParticipant(campaignId, participantId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("participants")
+        .delete()
+        .eq("campaign_id", campaignId)
+        .eq("id", participantId)
+        .select("id, nickname, department")
+      if (error?.code === "23503") {
+        const conflict = new Error(
+          "경품 수상자로 선정된 참가자는 삭제할 수 없습니다. 경품 선정을 먼저 취소해 주세요.",
+        )
+        conflict.status = 409
+        throw conflict
+      }
+      if (error) throw error
+      if (!data.length) {
+        const missing = new Error("참가자를 찾을 수 없습니다.")
+        missing.status = 404
+        throw missing
+      }
+      return data[0]
+    },
+
     async listParticipants(campaignId) {
       requireBackend()
       requireSupabaseBackend()

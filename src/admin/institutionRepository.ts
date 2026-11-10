@@ -276,6 +276,19 @@ export async function updateCampaignLeaderboardVisibility(
   })
 }
 
+export async function deleteParticipant(
+  campaignId: string,
+  participantId: string,
+) {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 참가자 관리를 지원하지 않습니다.")
+  }
+  await adminRequest<void>(
+    `/campaigns/${campaignId}/participants/${participantId}`,
+    { method: "DELETE" },
+  )
+}
+
 export async function listParticipants(
   campaignId: string,
 ): Promise<Participant[]> {

@@ -843,6 +843,13 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         ? supabase.from("institutions").update(payload).eq("id", id)
         : supabase.from("institutions").insert(payload)
       const { data, error } = await query.select("*").single()
+      if (error?.code === "23505") {
+        const conflict = new Error(
+          "이미 사용 중인 기관 식별자입니다. 다른 영문 식별자를 입력해 주세요.",
+        )
+        conflict.status = 409
+        throw conflict
+      }
       if (error) throw error
       return toInstitution(data)
     },

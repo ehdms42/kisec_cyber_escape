@@ -66,6 +66,7 @@ export default function GameScreen({
   const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(
     initial.answerCorrect,
   )
+  const [correctAnswer, setCorrectAnswer] = useState<number | null>(null)
   const [answerPending, setAnswerPending] = useState(false)
   const [answerSubmitError, setAnswerSubmitError] = useState("")
   const [revealedHints, setRevealedHints] =
@@ -252,6 +253,7 @@ export default function GameScreen({
     setQuestionStep(0)
     setSelectedAnswer(null)
     setAnswerCorrect(null)
+    setCorrectAnswer(null)
     setAnswerSubmitError("")
     setPhase("quiz")
   }
@@ -276,6 +278,12 @@ export default function GameScreen({
         typeof verification === "boolean" ? index : verification.selectedAnswer,
       )
       setAnswerCorrect(correct)
+      if (typeof verification === "boolean") {
+        const { fallbackAnswerFor } = await import("../data/questionAnswers")
+        setCorrectAnswer(fallbackAnswerFor(activeQuestion.id) ?? null)
+      } else {
+        setCorrectAnswer(verification.correctAnswer ?? null)
+      }
       if (typeof verification === "boolean") {
         const isRetry = localAnsweredOrdinalsRef.current.has(activeQuestion.id)
         localAnsweredOrdinalsRef.current.add(activeQuestion.id)
@@ -334,6 +342,7 @@ export default function GameScreen({
     setQuestionStep((value) => value + 1)
     setSelectedAnswer(null)
     setAnswerCorrect(null)
+    setCorrectAnswer(null)
     setAnswerSubmitError("")
   }
 
@@ -383,6 +392,7 @@ export default function GameScreen({
         setReviewIndex(0)
         setSelectedAnswer(null)
         setAnswerCorrect(null)
+        setCorrectAnswer(null)
         setAnswerSubmitError("")
         setPhase("review")
         return
@@ -399,11 +409,13 @@ export default function GameScreen({
       setReviewIndex((value) => value + 1)
       setSelectedAnswer(null)
       setAnswerCorrect(null)
+      setCorrectAnswer(null)
       setAnswerSubmitError("")
       return
     }
     setSelectedAnswer(null)
     setAnswerCorrect(null)
+    setCorrectAnswer(null)
     setAnswerSubmitError("")
     void proceedPastKeypad()
   }
@@ -443,6 +455,7 @@ export default function GameScreen({
     if (phase === "review") {
       setSelectedAnswer(null)
       setAnswerCorrect(null)
+      setCorrectAnswer(null)
       setAnswerSubmitError("")
       setPhase("room")
       return
@@ -459,6 +472,7 @@ export default function GameScreen({
       setQuestionStep(0)
       setSelectedAnswer(null)
       setAnswerCorrect(null)
+      setCorrectAnswer(null)
       setAnswerSubmitError("")
       setActiveId(null)
       setPhase("room")
@@ -783,6 +797,7 @@ export default function GameScreen({
                 parts={questionParts}
                 selectedAnswer={selectedAnswer}
                 answerCorrect={answerCorrect}
+                correctAnswer={correctAnswer}
                 answerPending={answerPending}
                 onSelectAnswer={chooseAnswer}
                 revealedHints={revealedHints[question.id] ?? {}}
@@ -867,6 +882,7 @@ export default function GameScreen({
               parts={reviewQuestionParts}
               selectedAnswer={selectedAnswer}
               answerCorrect={answerCorrect}
+              correctAnswer={correctAnswer}
               answerPending={answerPending}
               onSelectAnswer={chooseAnswer}
               revealedHints={revealedHints[reviewQuestion.id] ?? {}}

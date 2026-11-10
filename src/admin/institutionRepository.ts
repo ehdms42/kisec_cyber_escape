@@ -1,5 +1,8 @@
 import { isAdminDemoMode, supabase } from "../lib/supabase"
-import { isFallbackAnswerCorrect } from "../data/questionAnswers"
+import {
+  fallbackAnswerFor,
+  isFallbackAnswerCorrect,
+} from "../data/questionAnswers"
 import { announceLeaderboardChange } from "../game/liveLeaderboard"
 import { isSecurityLevel, securityLevelFromResult } from "../game/securityLevel"
 import type {
@@ -58,6 +61,7 @@ interface AnswerResult {
   selected_answer: number
   verified_score: number
   answered_count: number
+  correct_answer?: number
 }
 
 function requireSupabase() {
@@ -666,6 +670,7 @@ export async function recordAttemptAnswer(
       selectedAnswer: alreadyCorrect ? existingAnswer : selectedAnswer,
       verifiedScore,
       answeredCount,
+      correctAnswer: fallbackAnswerFor(questionOrdinal),
     }
     announceLeaderboardChange()
     return result
@@ -686,6 +691,10 @@ export async function recordAttemptAnswer(
     selectedAnswer: result.selected_answer,
     verifiedScore: result.verified_score,
     answeredCount: result.answered_count,
+    correctAnswer:
+      typeof result.correct_answer === "number"
+        ? result.correct_answer
+        : undefined,
   }
 }
 

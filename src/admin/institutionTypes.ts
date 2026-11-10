@@ -139,6 +139,8 @@ export interface AnswerVerification {
   selectedAnswer: number
   verifiedScore: number
   answeredCount: number
+  // 답을 낸 뒤 알려 주는 정답 번호. 서버가 주지 않으면 표시하지 않는다.
+  correctAnswer?: number
 }
 
 export interface CampaignQuestion {

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import QRCode from "qrcode"
 import {
-  importParticipants,
   listCampaignLiveAttempts,
   listParticipants,
   updateCampaignLeaderboardVisibility,
@@ -12,7 +11,6 @@ import type {
   CampaignStatus,
   LiveAttemptEntry,
   Participant,
-  ParticipantImportResult,
 } from "../../admin/institutionTypes"
 import { useNotice } from "../../admin/useNotice"
 import { subscribeToLeaderboard } from "../../game/liveLeaderboard"
@@ -58,90 +56,6 @@ const STATUS_TRANSITIONS: Record<CampaignStatus, {
   ],
   finalized: [],
   cancelled: [{ to: "draft", label: "준비 상태로" }],
-}
-
-interface ParticipantRow {
-  nickname: string
-  participantCode: string
-  department: string
-  contact: string
-}
-
-const HEADER_ALIASES: Record<string, keyof ParticipantRow> = {
-  nickname: "nickname",
-  닉네임: "nickname",
-  이름: "nickname",
-  participantcode: "participantCode",
-  참여코드: "participantCode",
-  코드: "participantCode",
-  department: "department",
-  부서: "department",
-  소속: "department",
-  contact: "contact",
-  연락처: "contact",
-  전화번호: "contact",
-}
-
-function parseCsvRows(text: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let field = ""
-  let inQuotes = false
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          field += '"'
-          i++
-        } else inQuotes = false
-      } else field += char
-    } else if (char === '"') {
-      inQuotes = true
-    } else if (char === ",") {
-      row.push(field)
-      field = ""
-    } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && text[i + 1] === "\n") i++
-      row.push(field)
-      field = ""
-      rows.push(row)
-      row = []
-    } else {
-      field += char
-    }
-  }
-  if (field || row.length) {
-    row.push(field)
-    rows.push(row)
-  }
-  return rows.filter((cells) => cells.some((cell) => cell.trim()))
-}
-
-function parseParticipantCsv(text: string): ParticipantRow[] {
-  const rows = parseCsvRows(text.replace(/^﻿/, ""))
-  if (!rows.length) return []
-  const header = rows[0].map((cell) =>
-    cell.trim().toLowerCase().replace(/\s+/g, ""),
-  )
-  const mappedKeys = header.map((cell) => HEADER_ALIASES[cell] ?? null)
-  const hasHeader = mappedKeys.some(Boolean)
-  const dataRows = hasHeader ? rows.slice(1) : rows
-  const keys = hasHeader
-    ? mappedKeys
-    : ["nickname", "participantCode", "department", "contact"] as const
-  return dataRows.map((cells) => {
-    const entry: Partial<ParticipantRow> = {}
-    keys.forEach((key, index) => {
-      if (key) entry[key] = (cells[index] ?? "").trim()
-    })
-    return {
-      nickname: entry.nickname ?? "",
-      participantCode: entry.participantCode ?? "",
-      department: entry.department ?? "",
-      contact: entry.contact ?? "",
-    }
-  })
 }
 
 export default function CampaignOperationsPanel({
@@ -370,14 +284,6 @@ function ParticipantsTab({
 }) {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
-  const [importing, setImporting] = useState(false)
-  const [importResults, setImportResults] = useState<ParticipantImportResult[]>(
-    [],
-  )
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [manualNickname, setManualNickname] = useState("")
-  const [manualCode, setManualCode] = useState("")
-  const [manualDepartment, setManualDepartment] = useState("")
   const [departmentFilter, setDepartmentFilter] = useState("all")
 
   const refresh = useCallback(async () => {
@@ -432,156 +338,9 @@ function ParticipantsTab({
     )
   }, [visibleParticipants])
 
-  const handleFile = async (file: File) => {
-    const text = await file.text()
-    const rows = parseParticipantCsv(text)
-    if (!rows.length) {
-      setNotice("CSV 파일에서 참가자 정보를 찾지 못했습니다.")
-      return
-    }
-    setImporting(true)
-    try {
-      const results = await importParticipants(campaignId, rows)
-      setImportResults(results)
-      const registered = results.filter(
-        (item) => item.status === "registered",
-      ).length
-      setNotice(`${registered}명을 등록했습니다. (총 ${results.length}행 처리)`)
-      await refresh()
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "참가자를 등록하지 못했습니다.",
-      )
-    } finally {
-      setImporting(false)
-      if (fileInputRef.current) fileInputRef.current.value = ""
-    }
-  }
-
-  const addManual = async () => {
-    if (
-      manualNickname.trim().length < 2 ||
-      manualCode.trim().length < 4 ||
-      !manualDepartment.trim()
-    ) {
-      setNotice(
-        "닉네임(2자 이상), 참여 코드(4자 이상), 부서를 모두 입력해 주세요.",
-      )
-      return
-    }
-    setImporting(true)
-    try {
-      const results = await importParticipants(campaignId, [
-        {
-          nickname: manualNickname.trim(),
-          participantCode: manualCode.trim(),
-          department: manualDepartment.trim(),
-        },
-      ])
-      const [result] = results
-      setNotice(result?.message ?? "참가자를 등록했습니다.")
-      setManualNickname("")
-      setManualCode("")
-      setManualDepartment("")
-      await refresh()
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "참가자를 등록하지 못했습니다.",
-      )
-    } finally {
-      setImporting(false)
-    }
-  }
-
   return (
     <section className="campaign-participants-tab">
       <DepartmentCodesSection campaignId={campaignId} setNotice={setNotice} />
-
-      <details className="personal-codes">
-        <summary>개인별 참여 코드 등록 (선택)</summary>
-        <p className="campaign-questions-help">
-          1인 1코드가 필요할 때만 사용하세요. 부서 코드만 쓴다면 비워 두어도
-          됩니다.
-        </p>
-        <div className="admin-file-drop campaign-csv-drop">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            disabled={importing}
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) void handleFile(file)
-            }}
-          />
-          <b>CSV로 참가자 일괄 등록</b>
-          <span>
-            닉네임, 참여코드, 부서, 연락처 열을 포함한 CSV 파일을 선택하세요.
-          </span>
-        </div>
-
-        {importResults.length > 0 && (
-          <div className="admin-import-summary">
-            <span>
-              등록{" "}
-              <b>
-                {
-                  importResults.filter((item) => item.status === "registered")
-                    .length
-                }
-              </b>
-            </span>
-            <span>
-              중복{" "}
-              <b>
-                {
-                  importResults.filter((item) => item.status === "duplicate")
-                    .length
-                }
-              </b>
-            </span>
-            <span>
-              건너뜀{" "}
-              <b>
-                {
-                  importResults.filter((item) => item.status === "skipped")
-                    .length
-                }
-              </b>
-            </span>
-          </div>
-        )}
-
-        <div className="campaign-manual-add">
-          <input
-            value={manualNickname}
-            onChange={(event) => setManualNickname(event.target.value)}
-            placeholder="닉네임"
-          />
-          <input
-            value={manualCode}
-            onChange={(event) => setManualCode(event.target.value)}
-            placeholder="참여 코드"
-          />
-          <input
-            value={manualDepartment}
-            onChange={(event) => setManualDepartment(event.target.value)}
-            placeholder="부서"
-          />
-          <button
-            type="button"
-            className="admin-primary"
-            disabled={importing}
-            onClick={addManual}
-          >
-            추가
-          </button>
-        </div>
-      </details>
 
       <div className="department-codes-head">
         <b>입장한 참가자</b>

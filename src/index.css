@@ -8181,16 +8181,3 @@ button:focus-visible {
   padding: 0 11px !important;
 }
 .department-codes-actions button.danger { color: #b42318; }
-.personal-codes {
-  border: 1px solid #d9e3f0;
-  border-radius: 10px;
-  margin-bottom: 18px;
-  padding: 12px 14px;
-}
-.personal-codes summary {
-  color: var(--blue-90);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
-}
-.personal-codes[open] summary { margin-bottom: 10px; }

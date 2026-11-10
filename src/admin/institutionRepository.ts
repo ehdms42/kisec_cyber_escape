@@ -512,6 +512,8 @@ export async function startOrResumeAttempt(
     },
   )
   if (error) throw new Error(error.message)
+  // 등록되지 않은 코드는 실패 횟수를 남기기 위해 예외 대신 error 필드로 돌려받는다.
+  if (typeof data?.error === "string") throw new Error(data.error)
   return {
     attemptId: data.attempt_id,
     resumeToken: data.resume_token,

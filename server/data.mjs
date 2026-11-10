@@ -1489,13 +1489,19 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         const contact = String(row?.contact ?? "")
           .trim()
           .slice(0, 120)
-        if (!nickname || nickname.length < 2 || !code || code.length < 4) {
+        if (
+          !nickname ||
+          nickname.length < 2 ||
+          !code ||
+          code.length < 4 ||
+          !department
+        ) {
           results.push({
             row: index + 1,
             nickname,
             status: "skipped",
             message:
-              "닉네임(2자 이상) 또는 참여 코드(4자 이상)를 확인해 주세요.",
+              "닉네임(2자 이상), 참여 코드(4자 이상), 부서를 확인해 주세요.",
           })
           return
         }

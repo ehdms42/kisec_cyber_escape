@@ -460,8 +460,14 @@ function ParticipantsTab({
   }
 
   const addManual = async () => {
-    if (manualNickname.trim().length < 2 || manualCode.trim().length < 4) {
-      setNotice("닉네임(2자 이상)과 참여 코드(4자 이상)를 입력해 주세요.")
+    if (
+      manualNickname.trim().length < 2 ||
+      manualCode.trim().length < 4 ||
+      !manualDepartment.trim()
+    ) {
+      setNotice(
+        "닉네임(2자 이상), 참여 코드(4자 이상), 부서를 모두 입력해 주세요.",
+      )
       return
     }
     setImporting(true)
@@ -552,7 +558,7 @@ function ParticipantsTab({
         <input
           value={manualDepartment}
           onChange={(event) => setManualDepartment(event.target.value)}
-          placeholder="부서 (선택)"
+          placeholder="부서"
         />
         <button
           type="button"

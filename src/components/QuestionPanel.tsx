@@ -6,6 +6,7 @@ interface QuestionPanelProps {
   parts: QuestionParts
   selectedAnswer: number | null
   answerCorrect: boolean | null
+  correctAnswer?: number | null
   answerPending: boolean
   onSelectAnswer: (index: number) => void
   revealedHints?: Record<number, string>
@@ -21,6 +22,7 @@ export default function QuestionPanel({
   parts,
   selectedAnswer,
   answerCorrect,
+  correctAnswer = null,
   answerPending,
   onSelectAnswer,
   revealedHints = {},
@@ -59,8 +61,11 @@ export default function QuestionPanel({
 
       <div className="answer-list">
         {question.options.map((option, index) => {
+          // 맞히면 고른 보기를, 틀리면 서버가 알려 준 정답 보기를 표시한다.
           const isCorrect =
-            answered && answerCorrect === true && index === selectedAnswer
+            answered &&
+            ((answerCorrect === true && index === selectedAnswer) ||
+              (answerCorrect === false && index === correctAnswer))
           const isWrong =
             answered && answerCorrect === false && index === selectedAnswer
           const state = isCorrect

@@ -1708,13 +1708,19 @@ button:focus-visible {
 .review-mission .object-quiz-panel {
   min-height: auto;
   animation: none;
+  /* 다시 풀기 화면에서는 패널이 화면 아래에 붙지 않으므로 네 모서리를 모두 둥글게 한다. */
+  border-bottom: 1px solid #ffffffe6;
+  border-radius: var(--ui-radius-lg);
+  margin-top: 0;
+  box-shadow: var(--ui-shadow-panel);
 }
 
 .review-banner {
   color: var(--blue-95);
-  background: #fff4e0;
-  border: 1px solid #f0d8a6;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
+  box-shadow: 0 4px 0 var(--blue-60), 0 10px 22px #020b1a40;
   align-items: center;
   gap: 10px;
   margin-bottom: 18px;
@@ -1735,7 +1741,8 @@ button:focus-visible {
 }
 
 .review-banner small {
-  color: var(--ui-text-muted);
+  color: var(--blue-60);
+  font-weight: 700;
   margin-top: 2px;
   font-size: 11px;
   display: block;

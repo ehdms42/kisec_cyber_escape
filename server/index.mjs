@@ -758,6 +758,54 @@ app.post(
   },
 )
 
+// ---- 부서 참여 코드 --------------------------------------------------------
+
+app.get(
+  "/api/admin/campaigns/:id/department-codes",
+  requireAdmin,
+  requireRole("operations", "super"),
+  async (req, res) => {
+    res.json(await store.listDepartmentCodes(req.params.id))
+  },
+)
+
+app.post(
+  "/api/admin/campaigns/:id/department-codes",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const created = await store.createDepartmentCode(req.params.id, req.body)
+    await recordAudit(req, {
+      action: "create",
+      targetType: "department_code",
+      targetId: req.params.id,
+      after: { department: created.department },
+    })
+    res.status(201).json(created)
+  },
+)
+
+app.delete(
+  "/api/admin/campaigns/:id/department-codes/:codeId",
+  requireAdmin,
+  requireRole("operations", "super"),
+  requireMutationProtection,
+  async (req, res) => {
+    const deleted = await store.deleteDepartmentCode(
+      req.params.id,
+      req.params.codeId,
+    )
+    await recordAudit(req, {
+      action: "delete",
+      targetType: "department_code",
+      targetId: req.params.id,
+      before: { department: deleted.department },
+    })
+    res.status(204).end()
+  },
+)
+
 // ---- 실시간 모니터링 -------------------------------------------------------
 
 app.get("/api/admin/campaigns/:id/live", requireAdmin, async (req, res) => {
@@ -946,6 +994,11 @@ app.use((error, _req, res, _next) => {
         ? "파일은 20MB 이하만 업로드할 수 있습니다."
         : "파일 업로드 요청을 확인해 주세요."
     res.status(400).json({ message })
+    return
+  }
+  // 잘못된 UUID 등 입력 형식 오류는 서버 오류가 아니라 요청 오류로 돌려준다.
+  if (error?.code === "22P02") {
+    res.status(400).json({ message: "요청 값의 형식이 올바르지 않습니다." })
     return
   }
   const status = Number(error?.status) || 500

@@ -243,3 +243,22 @@ test("세션 문항 구성은 공개 문항만 저장하고 필수 문항 수를
     await store.deleteQuestion(first.id)
   })
 })
+
+test("부서 참여 코드는 부서명과 6자 이상 영문·숫자 코드만 허용한다", async () => {
+  const { normalizeDepartmentCodeInput } = await import("./data.mjs")
+  assert.deepEqual(
+    normalizeDepartmentCodeInput({
+      department: " 정보보호팀 ",
+      code: " SEC-7421 ",
+    }),
+    { department: "정보보호팀", code: "SEC-7421" },
+  )
+  for (const input of [
+    { department: "", code: "SEC-7421" },
+    { department: "정보보호팀", code: "abc12" },
+    { department: "정보보호팀", code: "코드한글123" },
+    { department: "정보보호팀", code: "abc 1234" },
+  ]) {
+    assert.throws(() => normalizeDepartmentCodeInput(input), { status: 400 })
+  }
+})

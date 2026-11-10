@@ -15,6 +15,7 @@ const TARGET_TYPE_OPTIONS = [
   "institution",
   "campaign",
   "participant",
+  "department_code",
   "attempt",
   "prize_award",
   "admin_account",

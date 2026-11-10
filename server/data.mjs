@@ -315,6 +315,26 @@ function bufferIncludesHeader(buffer, signature, byteLimit) {
   )
 }
 
+export function normalizeDepartmentCodeInput(input) {
+  const department = String(input?.department ?? "")
+    .trim()
+    .slice(0, 60)
+  const code = String(input?.code ?? "").trim()
+  if (!department) {
+    const error = new Error("부서명을 입력해 주세요.")
+    error.status = 400
+    throw error
+  }
+  if (!/^[A-Za-z0-9-]{6,40}$/.test(code)) {
+    const error = new Error(
+      "부서 참여 코드는 영문, 숫자, 하이픈으로 6~40자 입력해 주세요.",
+    )
+    error.status = 400
+    throw error
+  }
+  return { department, code }
+}
+
 export function validateDocumentFile(file) {
   const extension = path.extname(file?.originalname ?? "").toLowerCase()
   if (![".pdf", ".hwp", ".hwpx", ".docx"].includes(extension)) {
@@ -1472,6 +1492,73 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
             : null,
         }
       })
+    },
+
+    async listDepartmentCodes(campaignId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("campaign_department_codes")
+        .select("id, department, code, created_at")
+        .eq("campaign_id", campaignId)
+        .order("department", { ascending: true })
+      if (error) throw error
+      return data.map((row) => ({
+        id: row.id,
+        department: row.department,
+        code: row.code,
+        createdAt: row.created_at,
+      }))
+    },
+
+    async createDepartmentCode(campaignId, input) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { department, code } = normalizeDepartmentCodeInput(input)
+      const { data, error } = await supabase
+        .from("campaign_department_codes")
+        .insert({ campaign_id: campaignId, department, code })
+        .select("id, department, code, created_at")
+        .single()
+      if (error?.code === "23505") {
+        const conflict = new Error(
+          String(error.message).includes("code_key")
+            ? "이 배포에서 이미 사용 중인 참여 코드입니다."
+            : "이 배포에 이미 등록된 부서입니다.",
+        )
+        conflict.status = 409
+        throw conflict
+      }
+      if (error?.code === "23503") {
+        const missing = new Error("배포를 찾을 수 없습니다.")
+        missing.status = 404
+        throw missing
+      }
+      if (error) throw error
+      return {
+        id: data.id,
+        department: data.department,
+        code: data.code,
+        createdAt: data.created_at,
+      }
+    },
+
+    async deleteDepartmentCode(campaignId, codeId) {
+      requireBackend()
+      requireSupabaseBackend()
+      const { data, error } = await supabase
+        .from("campaign_department_codes")
+        .delete()
+        .eq("campaign_id", campaignId)
+        .eq("id", codeId)
+        .select("id, department, code")
+      if (error) throw error
+      if (!data.length) {
+        const missing = new Error("부서 참여 코드를 찾을 수 없습니다.")
+        missing.status = 404
+        throw missing
+      }
+      return data[0]
     },
 
     async importParticipants(campaignId, rows) {

@@ -11,6 +11,7 @@ import type {
   CampaignQuestion,
   CampaignQuestionSetResult,
   CampaignStatus,
+  DepartmentCode,
   HintRevealResult,
   Institution,
   LiveAttemptEntry,
@@ -19,6 +20,24 @@ import type {
   PublicCampaign,
 } from "./institutionTypes"
 import { adminRequest } from "./serverApi"
+
+const DEVICE_ID_KEY = "cyber-quest-device-id"
+let memoryDeviceId: string | null = null
+
+// 부서 공용 코드로 입장할 때 응시자를 구분하는 브라우저별 ID.
+// 브라우저 저장소를 쓸 수 없으면 이 탭에서만 유지되는 ID를 쓴다.
+function getDeviceId() {
+  try {
+    const saved = window.localStorage.getItem(DEVICE_ID_KEY)
+    if (saved && /^[A-Za-z0-9-]{16,64}$/.test(saved)) return saved
+    const created = crypto.randomUUID()
+    window.localStorage.setItem(DEVICE_ID_KEY, created)
+    return created
+  } catch {
+    memoryDeviceId ??= crypto.randomUUID()
+    return memoryDeviceId
+  }
+}
 
 const DEMO_INSTITUTION_KEY = "cyber-quest-demo-institutions"
 const DEMO_CAMPAIGN_KEY = "cyber-quest-demo-campaigns"
@@ -280,6 +299,37 @@ export async function importParticipants(
   )
 }
 
+export async function listDepartmentCodes(
+  campaignId: string,
+): Promise<DepartmentCode[]> {
+  if (isAdminDemoMode) return []
+  return adminRequest<DepartmentCode[]>(
+    `/campaigns/${campaignId}/department-codes`,
+  )
+}
+
+export async function createDepartmentCode(
+  campaignId: string,
+  input: Pick<DepartmentCode, "department" | "code">,
+): Promise<DepartmentCode> {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 부서 참여 코드를 지원하지 않습니다.")
+  }
+  return adminRequest<DepartmentCode>(
+    `/campaigns/${campaignId}/department-codes`,
+    { method: "POST", body: JSON.stringify(input) },
+  )
+}
+
+export async function deleteDepartmentCode(campaignId: string, id: string) {
+  if (isAdminDemoMode) {
+    throw new Error("데모 모드에서는 부서 참여 코드를 지원하지 않습니다.")
+  }
+  await adminRequest<void>(`/campaigns/${campaignId}/department-codes/${id}`, {
+    method: "DELETE",
+  })
+}
+
 export async function listCampaignLiveAttempts(
   campaignId: string,
 ): Promise<LiveAttemptEntry[]> {
@@ -503,14 +553,22 @@ export async function startOrResumeAttempt(
     return session
   }
 
-  const { data, error } = await requireSupabase().rpc(
-    "start_or_resume_attempt",
-    {
-      p_public_token: publicToken,
-      p_participant_code: participantCode,
-      p_nickname: nickname,
-    },
-  )
+  const params = {
+    p_public_token: publicToken,
+    p_participant_code: participantCode,
+    p_nickname: nickname,
+  }
+  let { data, error } = await requireSupabase().rpc("start_or_resume_attempt", {
+    ...params,
+    p_device_id: getDeviceId(),
+  })
+  // PGRST202: 부서 코드 마이그레이션 적용 전이면 기존 방식으로 호출한다.
+  if (error?.code === "PGRST202") {
+    ;({ data, error } = await requireSupabase().rpc(
+      "start_or_resume_attempt",
+      params,
+    ))
+  }
   if (error) throw new Error(error.message)
   // 등록되지 않은 코드는 실패 횟수를 남기기 위해 예외 대신 error 필드로 돌려받는다.
   if (typeof data?.error === "string") throw new Error(data.error)

@@ -19,6 +19,7 @@ import { subscribeToLeaderboard } from "../../game/liveLeaderboard"
 import { useAdminDialog } from "./AdminDialogProvider"
 import AdminIcon from "./AdminIcon"
 import CampaignQuestionsTab from "./CampaignQuestionsTab"
+import DepartmentCodesSection from "./DepartmentCodesSection"
 
 const STATUS_LABEL: Record<CampaignStatus, string> = {
   draft: "준비 중",
@@ -498,76 +499,92 @@ function ParticipantsTab({
 
   return (
     <section className="campaign-participants-tab">
-      <div className="admin-file-drop campaign-csv-drop">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          disabled={importing}
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void handleFile(file)
-          }}
-        />
-        <b>CSV로 참가자 일괄 등록</b>
-        <span>
-          닉네임, 참여코드, 부서, 연락처 열을 포함한 CSV 파일을 선택하세요.
-        </span>
-      </div>
+      <DepartmentCodesSection campaignId={campaignId} setNotice={setNotice} />
 
-      {importResults.length > 0 && (
-        <div className="admin-import-summary">
+      <details className="personal-codes">
+        <summary>개인별 참여 코드 등록 (선택)</summary>
+        <p className="campaign-questions-help">
+          1인 1코드가 필요할 때만 사용하세요. 부서 코드만 쓴다면 비워 두어도
+          됩니다.
+        </p>
+        <div className="admin-file-drop campaign-csv-drop">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={importing}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void handleFile(file)
+            }}
+          />
+          <b>CSV로 참가자 일괄 등록</b>
           <span>
-            등록{" "}
-            <b>
-              {
-                importResults.filter((item) => item.status === "registered")
-                  .length
-              }
-            </b>
-          </span>
-          <span>
-            중복{" "}
-            <b>
-              {
-                importResults.filter((item) => item.status === "duplicate")
-                  .length
-              }
-            </b>
-          </span>
-          <span>
-            건너뜀{" "}
-            <b>
-              {importResults.filter((item) => item.status === "skipped").length}
-            </b>
+            닉네임, 참여코드, 부서, 연락처 열을 포함한 CSV 파일을 선택하세요.
           </span>
         </div>
-      )}
 
-      <div className="campaign-manual-add">
-        <input
-          value={manualNickname}
-          onChange={(event) => setManualNickname(event.target.value)}
-          placeholder="닉네임"
-        />
-        <input
-          value={manualCode}
-          onChange={(event) => setManualCode(event.target.value)}
-          placeholder="참여 코드"
-        />
-        <input
-          value={manualDepartment}
-          onChange={(event) => setManualDepartment(event.target.value)}
-          placeholder="부서"
-        />
-        <button
-          type="button"
-          className="admin-primary"
-          disabled={importing}
-          onClick={addManual}
-        >
-          추가
-        </button>
+        {importResults.length > 0 && (
+          <div className="admin-import-summary">
+            <span>
+              등록{" "}
+              <b>
+                {
+                  importResults.filter((item) => item.status === "registered")
+                    .length
+                }
+              </b>
+            </span>
+            <span>
+              중복{" "}
+              <b>
+                {
+                  importResults.filter((item) => item.status === "duplicate")
+                    .length
+                }
+              </b>
+            </span>
+            <span>
+              건너뜀{" "}
+              <b>
+                {
+                  importResults.filter((item) => item.status === "skipped")
+                    .length
+                }
+              </b>
+            </span>
+          </div>
+        )}
+
+        <div className="campaign-manual-add">
+          <input
+            value={manualNickname}
+            onChange={(event) => setManualNickname(event.target.value)}
+            placeholder="닉네임"
+          />
+          <input
+            value={manualCode}
+            onChange={(event) => setManualCode(event.target.value)}
+            placeholder="참여 코드"
+          />
+          <input
+            value={manualDepartment}
+            onChange={(event) => setManualDepartment(event.target.value)}
+            placeholder="부서"
+          />
+          <button
+            type="button"
+            className="admin-primary"
+            disabled={importing}
+            onClick={addManual}
+          >
+            추가
+          </button>
+        </div>
+      </details>
+
+      <div className="department-codes-head">
+        <b>입장한 참가자</b>
       </div>
 
       {participants.length > 0 && (
@@ -590,7 +607,7 @@ function ParticipantsTab({
       {loading ? (
         <p className="admin-empty">불러오는 중…</p>
       ) : participants.length === 0 ? (
-        <p className="admin-empty">등록된 참가자가 없습니다.</p>
+        <p className="admin-empty">아직 입장한 참가자가 없습니다.</p>
       ) : (
         participantsByDepartment.map(([department, departmentParticipants]) => (
           <div className="attempt-department-group" key={department}>
@@ -609,7 +626,7 @@ function ParticipantsTab({
                       ? "CSV 등록"
                       : participant.registeredBy === "admin"
                         ? "수동 등록"
-                        : "본인 입장"}
+                        : "코드 입장"}
                   </em>
                   <span>
                     {participant.attempt

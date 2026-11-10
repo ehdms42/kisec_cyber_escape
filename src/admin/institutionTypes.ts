@@ -45,6 +45,13 @@ export interface AttemptSummary {
   adjustmentReason: string | null
 }
 
+export interface DepartmentCode {
+  id: string
+  department: string
+  code: string
+  createdAt: string
+}
+
 export interface Participant {
   id: string
   nickname: string

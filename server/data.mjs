@@ -129,6 +129,7 @@ function toCampaign(row) {
     active: row.active,
     status: row.status ?? (row.active ? "open" : "closed"),
     leaderboardVisible: row.leaderboard_visible ?? true,
+    allowRetake: row.allow_retake ?? false,
     finalizedAt: row.finalized_at ?? null,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -921,7 +922,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
       const { data, error } = await supabase
         .from("campaigns")
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, allow_retake, finalized_at, created_at, institutions(name)",
         )
         .order("created_at", { ascending: false })
       if (error) throw error
@@ -951,6 +952,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         starts_at: input.startsAt || null,
         ends_at: input.endsAt || null,
         required_question_count: requiredQuestionCount,
+        allow_retake: Boolean(input.allowRetake),
       }
       if (!id) {
         payload.status = payload.active ? "open" : "draft"
@@ -996,7 +998,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         : supabase.from("campaigns").insert(payload)
       const { data, error } = await query
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, allow_retake, finalized_at, created_at, institutions(name)",
         )
         .single()
       if (error) throw error
@@ -1033,7 +1035,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         .update(payload)
         .eq("id", id)
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, allow_retake, finalized_at, created_at, institutions(name)",
         )
         .single()
       if (error) throw error
@@ -1062,7 +1064,7 @@ export function createDataStore({ supabase, allowLocalData, dataDirectory }) {
         .update({ leaderboard_visible: Boolean(visible) })
         .eq("id", id)
         .select(
-          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, finalized_at, created_at, institutions(name)",
+          "id, institution_id, title, public_token, active, starts_at, ends_at, required_question_count, status, leaderboard_visible, allow_retake, finalized_at, created_at, institutions(name)",
         )
         .single()
       if (error) throw error

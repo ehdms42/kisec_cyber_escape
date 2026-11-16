@@ -80,6 +80,8 @@ export default function App() {
   const [sessionWarning, setSessionWarning] = useState("")
   const latestProgress = useRef<GameProgress>(EMPTY_GAME_PROGRESS)
   const saveTimer = useRef<number | null>(null)
+  const participantCodeRef = useRef("")
+  const [retaking, setRetaking] = useState(false)
 
   useEffect(() => {
     if (!CAMPAIGN_TOKEN) return
@@ -200,6 +202,7 @@ export default function App() {
   ) => {
     setDepartment(departmentName)
     window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, departmentName)
+    participantCodeRef.current = participantCode
     if (CAMPAIGN_TOKEN) {
       const { startOrResumeAttempt } = await loadAttemptApi()
       const session = await startOrResumeAttempt(
@@ -230,6 +233,24 @@ export default function App() {
       }
     }
     setScreen("story")
+  }
+
+  const retakeAttempt = async () => {
+    if (!participantCodeRef.current) {
+      setScreen("department")
+      return
+    }
+    setRetaking(true)
+    setSessionWarning("")
+    try {
+      await confirmDepartment(department, participantCodeRef.current)
+    } catch (error) {
+      setSessionWarning(
+        error instanceof Error ? error.message : "다시 시작하지 못했습니다.",
+      )
+    } finally {
+      setRetaking(false)
+    }
   }
 
   const goHome = () => {
@@ -331,6 +352,10 @@ export default function App() {
     return api.getWrongQuestionOrdinals(attemptSession)
   }, [attemptSession])
 
+  const canRetake = Boolean(
+    campaign?.allowRetake && attemptSession?.status === "completed",
+  )
+
   const canShowResultLeaderboard = Boolean(
     attemptSession && campaign && CAMPAIGN_TOKEN && campaign.leaderboardVisible,
   )
@@ -387,12 +412,21 @@ export default function App() {
               ? "응시가 중지된 기록입니다"
               : "이미 완료한 퀘스트입니다"}
           </h1>
-          <p>
-            {attemptSession?.institutionName ?? campaign?.institutionName} 배포
-            기록은 한 번만 완료할 수 있습니다. 기록 수정이 필요하면 담당자에게
-            <br />
-            문의해 주세요.
-          </p>
+          {canRetake ? (
+            <p>
+              이 배포는 다시 도전할 수 있습니다. 다시 시작하면 이전 기록은
+              <br />
+              새 결과로 바뀝니다.
+            </p>
+          ) : (
+            <p>
+              {attemptSession?.institutionName ?? campaign?.institutionName}{" "}
+              배포 기록은 한 번만 완료할 수 있습니다. 기록 수정이 필요하면
+              담당자에게
+              <br />
+              문의해 주세요.
+            </p>
+          )}
           <strong>
             최종 점수 {score} / {questionTotal}
           </strong>
@@ -400,6 +434,11 @@ export default function App() {
             <strong>
               정보보안 등급 {SECURITY_LEVEL_META[securityLevel].label}
             </strong>
+          )}
+          {canRetake && (
+            <button type="button" disabled={retaking} onClick={retakeAttempt}>
+              {retaking ? "준비 중…" : "다시 도전하기"}
+            </button>
           )}
           <a href="/">확인</a>
         </section>

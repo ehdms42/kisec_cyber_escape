@@ -178,6 +178,7 @@ export async function saveCampaign(input: {
   startsAt: string | null
   endsAt: string | null
   requiredQuestionCount: number
+  allowRetake: boolean
 }) {
   if (isAdminDemoMode) {
     const campaigns = demoCampaigns()
@@ -196,6 +197,7 @@ export async function saveCampaign(input: {
       leaderboardVisible:
         campaigns.find((item) => item.id === input.id)?.leaderboardVisible ??
         true,
+      allowRetake: input.allowRetake,
       finalizedAt:
         campaigns.find((item) => item.id === input.id)?.finalizedAt ?? null,
       startsAt: input.startsAt,
@@ -461,6 +463,7 @@ export async function getPublicCampaign(
       institutionName: campaign.institutionName,
       requiredQuestionCount: campaign.requiredQuestionCount,
       leaderboardVisible: campaign.leaderboardVisible,
+      allowRetake: campaign.allowRetake ?? false,
     }
   }
   const { data, error } = await requireSupabase().rpc("get_campaign_public", {
@@ -475,6 +478,7 @@ export async function getPublicCampaign(
     institutionName: row.institution_name,
     requiredQuestionCount: row.required_question_count,
     leaderboardVisible: row.leaderboard_visible,
+    allowRetake: row.allow_retake ?? false,
   }
 }
 
@@ -519,7 +523,8 @@ export async function startOrResumeAttempt(
     const key = demoIdentifier(publicToken, participantCode)
     const sessions = demoSessions()
     const existing = sessions[key]
-    if (existing) {
+    const retake = campaign.allowRetake && existing?.status === "completed"
+    if (existing && !retake) {
       return {
         ...existing,
         securityLevel: isSecurityLevel(existing.securityLevel)

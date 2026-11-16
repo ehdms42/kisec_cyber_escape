@@ -635,6 +635,7 @@ function CampaignForm({
     startsAt: string | null
     endsAt: string | null
     requiredQuestionCount: number
+    allowRetake: boolean
   }) => Promise<void>
   onClose: () => void
 }) {
@@ -643,6 +644,9 @@ function CampaignForm({
   )
   const [title, setTitle] = useState(campaign?.title ?? "사이버보안 퀘스트")
   const [active, setActive] = useState(campaign?.active ?? true)
+  const [allowRetake, setAllowRetake] = useState(
+    campaign?.allowRetake ?? false,
+  )
   const [startsAt, setStartsAt] = useState(
     toDateInput(campaign?.startsAt ?? null),
   )
@@ -668,6 +672,7 @@ function CampaignForm({
         startsAt: toIso(startsAt),
         endsAt: toIso(endsAt),
         requiredQuestionCount: campaign?.requiredQuestionCount ?? 30,
+        allowRetake,
       })
     } catch (saveError) {
       setError(
@@ -734,6 +739,14 @@ function CampaignForm({
             onChange={(event) => setActive(event.target.checked)}
           />
           <span>배포 활성화</span>
+        </label>
+        <label className="admin-check-row">
+          <input
+            type="checkbox"
+            checked={allowRetake}
+            onChange={(event) => setAllowRetake(event.target.checked)}
+          />
+          <span>재응시 허용 (평가 횟수 제한 없음)</span>
         </label>
         {error && <p className="admin-form-error">{error}</p>}
         <footer>

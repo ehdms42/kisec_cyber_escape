@@ -6353,8 +6353,11 @@ button:focus-visible {
   margin-bottom: 0;
 }
 
+.attempt-locked-screen button,
 .attempt-locked-screen a {
   color: #fff;
+  cursor: pointer;
+  font-family: inherit;
   text-align: center;
   background: var(--ui-gradient-action);
   border: 2px solid #d9edff;
@@ -6367,6 +6370,19 @@ button:focus-visible {
   text-decoration: none;
   box-shadow: var(--ui-shadow-control);
   display: block;
+}
+
+.attempt-locked-screen button:disabled {
+  cursor: default;
+  opacity: .6;
+}
+
+.attempt-locked-screen button + a {
+  color: var(--blue-70);
+  background: #f8fbff;
+  border-color: var(--blue-30);
+  margin-top: 8px;
+  box-shadow: none;
 }
 
 .session-sync-warning {

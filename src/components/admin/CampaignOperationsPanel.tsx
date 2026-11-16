@@ -4,6 +4,7 @@ import {
   deleteParticipant,
   listCampaignLiveAttempts,
   listParticipants,
+  saveCampaign,
   updateCampaignLeaderboardVisibility,
   updateCampaignStatus,
 } from "../../admin/institutionRepository"
@@ -122,6 +123,37 @@ export default function CampaignOperationsPanel({
     }
   }
 
+  const toggleAllowRetake = async () => {
+    setWorking(true)
+    try {
+      const updated = await saveCampaign({
+        id: campaign.id,
+        institutionId: campaign.institutionId,
+        institutionName: campaign.institutionName,
+        title: campaign.title,
+        active: campaign.active,
+        startsAt: campaign.startsAt,
+        endsAt: campaign.endsAt,
+        requiredQuestionCount: campaign.requiredQuestionCount,
+        allowRetake: !campaign.allowRetake,
+      })
+      onUpdated(updated)
+      setNotice(
+        updated.allowRetake
+          ? "재응시를 허용했습니다. 완료한 참가자가 다시 들어오면 새로 시작합니다."
+          : "재응시를 막았습니다. 참가자는 한 번만 완료할 수 있습니다.",
+      )
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "재응시 설정을 변경하지 못했습니다.",
+      )
+    } finally {
+      setWorking(false)
+    }
+  }
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(link)
@@ -224,6 +256,16 @@ export default function CampaignOperationsPanel({
                 onChange={toggleLeaderboardVisible}
               />
               <span>참가자에게 결과 화면에서 순위 공개</span>
+            </label>
+
+            <label className="admin-check-row">
+              <input
+                type="checkbox"
+                checked={campaign.allowRetake}
+                disabled={working}
+                onChange={toggleAllowRetake}
+              />
+              <span>재응시 허용 (평가 횟수 제한 없음)</span>
             </label>
 
             <div className="campaign-qr-block">

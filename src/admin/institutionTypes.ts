@@ -21,6 +21,7 @@ export interface Campaign {
   active: boolean
   status: CampaignStatus
   leaderboardVisible: boolean
+  allowRetake: boolean
   finalizedAt: string | null
   startsAt: string | null
   endsAt: string | null
@@ -107,6 +108,7 @@ export interface PublicCampaign {
   institutionName: string
   requiredQuestionCount: number
   leaderboardVisible: boolean
+  allowRetake: boolean
 }
 
 export interface AttemptSession {

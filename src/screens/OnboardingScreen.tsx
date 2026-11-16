@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { PROLOGUE } from "../game/config"
 
 interface OnboardingScreenProps {
@@ -7,6 +7,7 @@ interface OnboardingScreenProps {
 }
 
 const TYPE_INTERVAL_MS = 28
+const AUTO_ADVANCE_DELAY_MS = 3500
 
 export default function OnboardingScreen({
   nickname,
@@ -14,6 +15,7 @@ export default function OnboardingScreen({
 }: OnboardingScreenProps) {
   const [dialogueIndex, setDialogueIndex] = useState(0)
   const [visibleText, setVisibleText] = useState("")
+  const isAdvancingRef = useRef(false)
   const dialogue = PROLOGUE[dialogueIndex]
   const isLastDialogue = dialogueIndex === PROLOGUE.length - 1
   const isTyping = visibleText.length < dialogue.text.length
@@ -30,15 +32,20 @@ export default function OnboardingScreen({
     return () => window.clearInterval(timer)
   }, [dialogue.text])
 
-  const goToNextDialogue = () => {
-    if (isTyping) {
-      setVisibleText(dialogue.text)
-      return
-    }
+  const goToNextDialogue = useCallback(() => {
+    if (isAdvancingRef.current) return
+    isAdvancingRef.current = true
 
     if (isLastDialogue) onComplete()
-    else setDialogueIndex((value) => value + 1)
-  }
+    else setDialogueIndex((value) => Math.min(value + 1, PROLOGUE.length - 1))
+  }, [isLastDialogue, onComplete])
+
+  useEffect(() => {
+    isAdvancingRef.current = false
+    const timer = window.setTimeout(goToNextDialogue, AUTO_ADVANCE_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [dialogueIndex, goToNextDialogue])
 
   const roomImage =
     dialogue.scene === 0
@@ -54,6 +61,7 @@ export default function OnboardingScreen({
       className={`app-frame onboarding-screen ${
         dialogue.state === "denied" ? "is-denied" : ""
       }`}
+      onClick={goToNextDialogue}
     >
       {dialogue.scene === 2 ? (
         <div className="computer-scene" aria-hidden="true">
@@ -95,7 +103,10 @@ export default function OnboardingScreen({
       {dialogue.state === "denied" ? (
         <button
           className="denied-terminal-action"
-          onClick={() => setDialogueIndex((value) => value + 1)}
+          onClick={(event) => {
+            event.stopPropagation()
+            goToNextDialogue()
+          }}
           aria-label="접근 거부 확인 후 다음 장면"
         >
           <span className="denied-continue">화면을 눌러 계속</span>
@@ -104,14 +115,11 @@ export default function OnboardingScreen({
         <main className="dialogue-stage">
           <button
             className="dialogue-box"
-            onClick={goToNextDialogue}
-            aria-label={
-              isTyping
-                ? "대사 전체 표시"
-                : isLastDialogue
-                  ? "퀘스트 시작"
-                  : "다음 대사"
-            }
+            onClick={(event) => {
+              event.stopPropagation()
+              goToNextDialogue()
+            }}
+            aria-label={isLastDialogue ? "퀘스트 시작" : "다음 대사"}
           >
             <span
               className={`speaker-tag ${
@@ -131,7 +139,14 @@ export default function OnboardingScreen({
             )}
           </button>
           {!isLastDialogue && (
-            <button className="story-skip" type="button" onClick={onComplete}>
+            <button
+              className="story-skip"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onComplete()
+              }}
+            >
               스토리 건너뛰기
             </button>
           )}

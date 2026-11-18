@@ -201,6 +201,95 @@ export default function GameScreen({
     return () => window.cancelAnimationFrame(frame)
   }, [completed.length, phase])
 
+  // 마우스 환경: 화면 좌우 가장자리로 커서를 옮기면 그 방향으로 둘러보고, 드래그로도 이동한다.
+  useEffect(() => {
+    if (phase !== "room") return
+    const viewport = roomViewportRef.current
+    if (!viewport) return
+
+    const EDGE_RATIO = 0.22
+    const MAX_SPEED = 14
+    const DRAG_THRESHOLD = 5
+    let edgeVelocity = 0
+    let frame: number | null = null
+    let drag: { startX: number; startScroll: number; moved: boolean } | null =
+      null
+    let suppressClick = false
+
+    const step = () => {
+      if (edgeVelocity === 0 || drag) {
+        frame = null
+        return
+      }
+      viewport.scrollLeft += edgeVelocity
+      frame = window.requestAnimationFrame(step)
+    }
+
+    const startLoop = () => {
+      if (frame === null) frame = window.requestAnimationFrame(step)
+    }
+
+    const handleMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return
+
+      if (drag) {
+        const delta = event.clientX - drag.startX
+        if (Math.abs(delta) > DRAG_THRESHOLD) drag.moved = true
+        if (drag.moved) viewport.scrollLeft = drag.startScroll - delta
+        return
+      }
+
+      const rect = viewport.getBoundingClientRect()
+      const edge = rect.width * EDGE_RATIO
+      const x = event.clientX - rect.left
+      if (x < edge) edgeVelocity = -MAX_SPEED * (1 - x / edge)
+      else if (x > rect.width - edge)
+        edgeVelocity = MAX_SPEED * (1 - (rect.width - x) / edge)
+      else edgeVelocity = 0
+      if (edgeVelocity !== 0) startLoop()
+    }
+
+    const handleLeave = () => {
+      edgeVelocity = 0
+    }
+
+    const handleDown = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return
+      drag = {
+        startX: event.clientX,
+        startScroll: viewport.scrollLeft,
+        moved: false,
+      }
+    }
+
+    const handleUp = () => {
+      if (drag?.moved) suppressClick = true
+      drag = null
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      if (!suppressClick) return
+      suppressClick = false
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    viewport.addEventListener("pointermove", handleMove)
+    viewport.addEventListener("pointerleave", handleLeave)
+    viewport.addEventListener("pointerdown", handleDown)
+    window.addEventListener("pointerup", handleUp)
+    viewport.addEventListener("click", handleClick, true)
+
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      viewport.removeEventListener("pointermove", handleMove)
+      viewport.removeEventListener("pointerleave", handleLeave)
+      viewport.removeEventListener("pointerdown", handleDown)
+      window.removeEventListener("pointerup", handleUp)
+      viewport.removeEventListener("click", handleClick, true)
+    }
+  }, [phase])
+
   useEffect(() => {
     onProgress?.({
       phase,
@@ -687,7 +776,9 @@ export default function GameScreen({
               </span>
               <span className="pan-hint-copy">
                 <strong>좌우로 둘러보기</strong>
-                <small>화면을 밀어 방 안을 탐색하세요</small>
+                <small>
+                  화면을 밀거나 마우스를 좌우 끝으로 옮겨 탐색하세요
+                </small>
               </span>
             </div>
           )}
